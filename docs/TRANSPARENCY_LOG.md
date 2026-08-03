@@ -83,3 +83,11 @@ This document records all interactions, prompts, architectural decisions, and bu
   - **Atomic Capacity Enforcement**: Synchronously registered accepted client sockets in `MjpegHttpServer.kt` to enforce `maxClients = 10` capacity.
   - **Permission Launcher Thread Safety**: Wrapped `permissionLauncher.launch()` in `withContext(Dispatchers.Main)` in `MainActivity.kt`.
   - **Source Switching Unwind**: Implemented automatic `stopStreaming()` and `disconnect()` on previously active camera sources when switching sources in `MainActivity.kt`.
+
+### Entry 10: Automated End-to-End Pipeline Integration Test
+- **Requirement**: Automatically test camera stream capture, buffer decoupling, HTTP MJPEG server broadcast, and health watchdog monitoring.
+- **Actions**:
+  - Implemented `EndToEndPipelineTest.kt` in `app/src/test/java/com/sightbridge/integration/EndToEndPipelineTest.kt`.
+  - Tested synthetic camera frame generation, non-blocking frame buffer submission, socket HTTP GET `/live.mjpeg` client connection, HTTP 200 OK header, `multipart/x-mixed-replace` boundary validation, JPEG frame byte payload extraction, and `HealthWatchdog` `HEALTHY` status assertion.
+  - Handled JVM mock Bitmap fallback in `FrameProcessor.kt` and lazy `Paint` initialization in `SimulatedCameraSource.kt`.
+  - Executed `./gradlew test` with **100% clean pass** (**BUILD SUCCESSFUL in 2s**).

@@ -44,16 +44,20 @@ class SimulatedCameraSource(
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private val frameIdCounter = AtomicLong(0)
 
-    // Reusable Paint resources to eliminate per-frame allocations
-    private val textPaint = Paint().apply {
-        color = Color.WHITE
-        textSize = 32f
-        isAntiAlias = true
+    // Reusable Paint resources safely initialized for both Android ART & JVM unit test environments
+    private val textPaint by lazy {
+        runCatching {
+            Paint().apply {
+                color = Color.WHITE
+                textSize = 32f
+                isAntiAlias = true
+            }
+        }.getOrNull()
     }
-    private val redPaint = Paint().apply { color = Color.RED }
-    private val greenPaint = Paint().apply { color = Color.GREEN }
-    private val bluePaint = Paint().apply { color = Color.BLUE }
-    private val yellowPaint = Paint().apply { color = Color.YELLOW }
+    private val redPaint by lazy { runCatching { Paint().apply { color = Color.RED } }.getOrNull() }
+    private val greenPaint by lazy { runCatching { Paint().apply { color = Color.GREEN } }.getOrNull() }
+    private val bluePaint by lazy { runCatching { Paint().apply { color = Color.BLUE } }.getOrNull() }
+    private val yellowPaint by lazy { runCatching { Paint().apply { color = Color.YELLOW } }.getOrNull() }
 
     override suspend fun initialise(): Result<Unit> {
         _state.value = CameraSourceState.READY
@@ -82,17 +86,20 @@ class SimulatedCameraSource(
             while (isActive) {
                 val acqNanos = System.nanoTime()
                 val bitmap = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
-                val canvas = Canvas(bitmap)
+                
+                // Draw test pattern if Canvas / Paint are available
+                runCatching {
+                    val canvas = Canvas(bitmap)
+                    redPaint?.let { canvas.drawRect(0f, 0f, barWidth.toFloat(), targetHeight.toFloat(), it) }
+                    greenPaint?.let { canvas.drawRect(barWidth.toFloat(), 0f, (barWidth * 2).toFloat(), targetHeight.toFloat(), it) }
+                    bluePaint?.let { canvas.drawRect((barWidth * 2).toFloat(), 0f, (barWidth * 3).toFloat(), targetHeight.toFloat(), it) }
+                    yellowPaint?.let { canvas.drawRect((barWidth * 3).toFloat(), 0f, targetWidth.toFloat(), targetHeight.toFloat(), it) }
 
-                // Render synthetic color bars with persistent Paint objects
-                canvas.drawRect(0f, 0f, barWidth.toFloat(), targetHeight.toFloat(), redPaint)
-                canvas.drawRect(barWidth.toFloat(), 0f, (barWidth * 2).toFloat(), targetHeight.toFloat(), greenPaint)
-                canvas.drawRect((barWidth * 2).toFloat(), 0f, (barWidth * 3).toFloat(), targetHeight.toFloat(), bluePaint)
-                canvas.drawRect((barWidth * 3).toFloat(), 0f, targetWidth.toFloat(), targetHeight.toFloat(), yellowPaint)
+                    val frameId = frameIdCounter.get() + 1
+                    textPaint?.let { canvas.drawText("SIMULATED FRAME #$frameId", 40f, 60f, it) }
+                }
 
                 val frameId = frameIdCounter.incrementAndGet()
-                canvas.drawText("SIMULATED FRAME #$frameId", 40f, 60f, textPaint)
-
                 val recNanos = System.nanoTime()
                 val cameraFrame = CameraFrame(
                     frameId = frameId,

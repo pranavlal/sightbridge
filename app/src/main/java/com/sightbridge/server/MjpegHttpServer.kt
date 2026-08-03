@@ -3,6 +3,7 @@ package com.sightbridge.server
 import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.*
+import java.io.InputStream
 import java.io.OutputStream
 import java.net.Inet4Address
 import java.net.InetAddress
@@ -102,9 +103,14 @@ class MjpegHttpServer(
     private fun handleClient(socket: Socket) {
         var outputStream: OutputStream? = null
         try {
-            outputStream = socket.getOutputStream()
-            clientStreams.add(outputStream)
+            val inputStream = socket.getInputStream()
+            val requestBuffer = ByteArray(1024)
+            // Read initial client HTTP GET request header
+            val bytesRead = inputStream.read(requestBuffer)
+            if (bytesRead <= 0) return
 
+            outputStream = socket.getOutputStream()
+            
             val header = ("HTTP/1.1 200 OK\r\n" +
                     "Connection: close\r\n" +
                     "Max-Age: 0\r\n" +
@@ -116,12 +122,12 @@ class MjpegHttpServer(
             outputStream.write(header.toByteArray(Charsets.US_ASCII))
             outputStream.flush()
 
+            clientStreams.add(outputStream)
             Log.i(tag, "Client connected: ${socket.remoteSocketAddress}. Active clients: ${clientSockets.size}")
 
-            val inputStream = socket.getInputStream()
-            val buffer = ByteArray(1024)
-            while (isRunning && inputStream.read(buffer) != -1) {
-                // Keep HTTP connection open for continuous streaming
+            // Keep coroutine active while socket is connected and server is running
+            while (isRunning && !socket.isClosed && socket.isConnected) {
+                Thread.sleep(100)
             }
         } catch (e: Exception) {
             Log.d(tag, "Client disconnected: ${e.message}")
