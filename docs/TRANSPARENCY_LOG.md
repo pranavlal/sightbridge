@@ -91,3 +91,11 @@ This document records all interactions, prompts, architectural decisions, and bu
   - Tested synthetic camera frame generation, non-blocking frame buffer submission, socket HTTP GET `/live.mjpeg` client connection, HTTP 200 OK header, `multipart/x-mixed-replace` boundary validation, JPEG frame byte payload extraction, and `HealthWatchdog` `HEALTHY` status assertion.
   - Handled JVM mock Bitmap fallback in `FrameProcessor.kt` and lazy `Paint` initialization in `SimulatedCameraSource.kt`.
   - Executed `./gradlew test` with **100% clean pass** (**BUILD SUCCESSFUL in 2s**).
+
+### Entry 11: TalkBack & Screen Magnifier Accessibility Audit
+- **Requirement**: Verify accessibility compliance for blind users (TalkBack screen reader) and low-vision users (Android Screen Magnifier).
+- **Actions**:
+  - Validated `LiveRegionMode.Polite` status announcements in `MainActivity.kt` so TalkBack automatically speaks pipeline state changes out loud.
+  - Validated Material 3 `FilterChip` and `Button` accessibility roles, selection states, and 48dp touch targets.
+  - Implemented `AccessibilitySemanticsTest.kt` unit test suite covering TalkBack live region modes, status announcement formatting, and magnifier scrollable layout bounds.
+  - Executed `./gradlew test` with **100% clean pass**.
