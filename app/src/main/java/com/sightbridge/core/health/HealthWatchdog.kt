@@ -10,7 +10,7 @@ import kotlin.concurrent.withLock
 
 /**
  * Active System-Wide Health Watchdog per Section 27 of specification.
- * Monitors component heartbeats, staleness, and automatic degraded state transitions.
+ * Monitors component heartbeats, staleness, and automatic degraded/recovery state transitions.
  */
 class HealthWatchdog(
     private val frameTimeoutMs: Long = 2000
@@ -45,6 +45,27 @@ class HealthWatchdog(
                 detailCode = detailCode
             )
 
+            healthMap[component] = updated
+            _systemHealth.value = HashMap(healthMap)
+        }
+    }
+
+    /**
+     * Record a fresh frame/heartbeat arrival for a component.
+     * Automatically recovers DEGRADED state to HEALTHY.
+     */
+    fun recordHeartbeat(component: String, detailCode: String? = null) {
+        lock.withLock {
+            val currentNanos = System.nanoTime()
+            val prev = healthMap[component]
+            val updated = ComponentHealth(
+                component = component,
+                status = HealthLevel.HEALTHY,
+                lastSuccessNanos = currentNanos,
+                lastFailureNanos = prev?.lastFailureNanos,
+                consecutiveFailures = 0,
+                detailCode = detailCode ?: prev?.detailCode ?: "Active"
+            )
             healthMap[component] = updated
             _systemHealth.value = HashMap(healthMap)
         }

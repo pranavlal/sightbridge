@@ -51,3 +51,10 @@ This document records all interactions, prompts, architectural decisions, and bu
   - **CameraX Binding**: Updated `CameraXPhoneSource` with full `ProcessCameraProvider` and `ImageAnalysis` lifecycle binding.
   - **Accessibility**: Updated `MainActivity.kt` with scrollable layout and TalkBack live-region announcements (`LiveRegionMode.Polite`).
   - **Testing**: Added `HealthWatchdogTest` covering active staleness detection. Executed `./gradlew test` with 100% clean pass (**BUILD SUCCESSFUL in 4s**).
+
+### Entry 6: Second Codex CLI Re-Audit & Pipeline Decoupling
+- **Re-Audit Findings Executed**:
+  - **Decoupled Async Pipeline**: Updated `HttpMjpegVoiceStreamAdapter` to launch a background consumer loop on `Dispatchers.Default` that continuously polls `LatestFrameBuffer`, encodes JPEG, and transmits to `MjpegHttpServer`. `submitFrame()` is strictly non-blocking.
+  - **Heartbeat & Automatic Recovery**: Added `recordHeartbeat()` in `HealthWatchdog` registered on frame arrival, enabling automatic state recovery from `DEGRADED` to `HEALTHY`.
+  - **CameraX Buffer Safety**: Wrapped `CameraXPhoneSource` frame creation in `try { ... } finally { imageProxy.close() }` to guarantee Android CameraX buffer release.
+  - **Pipeline Startup Validation**: Updated `MainActivity.kt` to check `Result.isSuccess` on all startup steps (`initialise()`, `connect()`, `start()`, `startStreaming()`) and report typed errors if any step fails.

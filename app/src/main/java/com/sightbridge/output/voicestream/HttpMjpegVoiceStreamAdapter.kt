@@ -6,13 +6,14 @@ import com.sightbridge.core.model.CameraFrame
 import com.sightbridge.frame.buffer.LatestFrameBuffer
 import com.sightbridge.processing.FrameProcessor
 import com.sightbridge.server.MjpegHttpServer
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Implementation of VoiceStreamAdapter using MjpegHttpServer and LatestFrameBuffer per Section 20.
- * Operates independently of perception pipeline and prevents unbounded queuing.
+ * Decouples image compression & socket transmission onto a background consumer coroutine.
  */
 class HttpMjpegVoiceStreamAdapter : VoiceStreamAdapter {
 
@@ -22,6 +23,8 @@ class HttpMjpegVoiceStreamAdapter : VoiceStreamAdapter {
     private var mjpegServer: MjpegHttpServer? = null
     private val frameBuffer = LatestFrameBuffer(maxStaleAgeMs = 1000)
     private var activeConfig = VoiceStreamConfig()
+    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private var consumerJob: Job? = null
 
     override val droppedFramesCount: Long
         get() = frameBuffer.droppedFramesCount
@@ -33,9 +36,25 @@ class HttpMjpegVoiceStreamAdapter : VoiceStreamAdapter {
     }
 
     override suspend fun start(): Result<Unit> {
+        if (_state.value == VoiceStreamState.STREAMING) return Result.success(Unit)
+
         _state.value = VoiceStreamState.STARTING
         mjpegServer?.start()
         _state.value = VoiceStreamState.STREAMING
+
+        // Launch background consumer loop to poll latest frames asynchronously
+        consumerJob = scope.launch {
+            while (isActive && _state.value == VoiceStreamState.STREAMING) {
+                val frame = frameBuffer.poll()
+                if (frame != null) {
+                    val jpegBytes = FrameProcessor.compressBitmapToJpeg(frame.bitmap, activeConfig.jpegQuality)
+                    mjpegServer?.pushJpegFrame(jpegBytes)
+                } else {
+                    delay(10) // Rest briefly if no new frame is pending
+                }
+            }
+        }
+
         return Result.success(Unit)
     }
 
@@ -44,20 +63,14 @@ class HttpMjpegVoiceStreamAdapter : VoiceStreamAdapter {
             return Result.failure(IllegalStateException("Adapter not streaming"))
         }
 
-        // Non-blocking submission to latest-frame buffer
+        // Strictly non-blocking submission to latest-frame buffer
         frameBuffer.offer(frame)
-
-        // Poll latest fresh frame and push to HTTP server
-        val freshFrame = frameBuffer.poll()
-        if (freshFrame != null) {
-            val jpegBytes = FrameProcessor.compressBitmapToJpeg(freshFrame.bitmap, activeConfig.jpegQuality)
-            mjpegServer?.pushJpegFrame(jpegBytes)
-        }
-
         return Result.success(Unit)
     }
 
     override suspend fun stop(): Result<Unit> {
+        consumerJob?.cancel()
+        consumerJob = null
         mjpegServer?.stop()
         frameBuffer.clear()
         _state.value = VoiceStreamState.STOPPED
@@ -75,5 +88,6 @@ class HttpMjpegVoiceStreamAdapter : VoiceStreamAdapter {
 
     override suspend fun release() {
         stop()
+        scope.cancel()
     }
 }

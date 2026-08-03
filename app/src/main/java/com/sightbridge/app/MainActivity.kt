@@ -127,6 +127,7 @@ fun SightBridgeDashboard(
         }
         scope.launch(Dispatchers.Default) {
             activeCameraSource.frames.collect { frame ->
+                healthWatchdog.recordHeartbeat("CameraSource", "Frame ${frame.frameId}")
                 voiceAdapter.submitFrame(frame)
                 droppedFrames = voiceAdapter.droppedFramesCount
             }
@@ -295,14 +296,37 @@ fun SightBridgeDashboard(
                         onClick = {
                             scope.launch(Dispatchers.IO) {
                                 statusText = "Initialising source..."
-                                activeCameraSource.initialise()
-                                activeCameraSource.connect()
+                                val initResult = activeCameraSource.initialise()
+                                if (initResult.isFailure) {
+                                    statusText = "Error: Camera initialization failed"
+                                    return@launch
+                                }
 
-                                voiceAdapter.initialise(VoiceStreamConfig(bindLocalhostOnly = bindLocalhostOnly))
-                                voiceAdapter.start()
+                                val connectResult = activeCameraSource.connect()
+                                if (connectResult.isFailure) {
+                                    statusText = "Error: Camera connection failed"
+                                    return@launch
+                                }
+
+                                val voiceInitResult = voiceAdapter.initialise(VoiceStreamConfig(bindLocalhostOnly = bindLocalhostOnly))
+                                if (voiceInitResult.isFailure) {
+                                    statusText = "Error: Voice stream initialization failed"
+                                    return@launch
+                                }
+
+                                val voiceStartResult = voiceAdapter.start()
+                                if (voiceStartResult.isFailure) {
+                                    statusText = "Error: Voice stream start failed"
+                                    return@launch
+                                }
 
                                 statusText = "Starting camera stream..."
-                                activeCameraSource.startStreaming()
+                                val streamResult = activeCameraSource.startStreaming()
+                                if (streamResult.isFailure) {
+                                    statusText = "Error: Camera stream start failed"
+                                    return@launch
+                                }
+
                                 statusText = "Streaming active!"
                             }
                         },

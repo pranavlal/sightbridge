@@ -77,22 +77,25 @@ class CameraXPhoneSource(
             .build()
 
         imageAnalysis.setAnalyzer(cameraExecutor) { imageProxy ->
-            val acqNanos = System.nanoTime()
-            val bitmap = imageProxy.toBitmap()
-            val frameId = frameIdCounter.incrementAndGet()
-            val cameraFrame = CameraFrame(
-                frameId = frameId,
-                source = CameraSourceType.PHONE_CAMERA,
-                acquisitionTimestampNanos = acqNanos,
-                receivedTimestampNanos = System.nanoTime(),
-                width = imageProxy.width,
-                height = imageProxy.height,
-                rotationDegrees = imageProxy.imageInfo.rotationDegrees,
-                pixelFormat = PixelFormat.RGBA_8888,
-                bitmap = bitmap
-            )
-            _frames.tryEmit(cameraFrame)
-            imageProxy.close()
+            try {
+                val acqNanos = System.nanoTime()
+                val bitmap = imageProxy.toBitmap()
+                val frameId = frameIdCounter.incrementAndGet()
+                val cameraFrame = CameraFrame(
+                    frameId = frameId,
+                    source = CameraSourceType.PHONE_CAMERA,
+                    acquisitionTimestampNanos = acqNanos,
+                    receivedTimestampNanos = System.nanoTime(),
+                    width = imageProxy.width,
+                    height = imageProxy.height,
+                    rotationDegrees = imageProxy.imageInfo.rotationDegrees,
+                    pixelFormat = PixelFormat.RGBA_8888,
+                    bitmap = bitmap
+                )
+                _frames.tryEmit(cameraFrame)
+            } finally {
+                imageProxy.close()
+            }
         }
 
         try {
