@@ -1,8 +1,12 @@
 package com.sightbridge.app
 
+import android.Manifest
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -32,21 +36,23 @@ import com.sightbridge.server.MjpegHttpServer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var metaAdapter: MetaSdkAdapter
     private lateinit var simulatedSource: SimulatedCameraSource
     private lateinit var phoneSource: CameraXPhoneSource
-    private val voiceStreamAdapter = HttpMjpegVoiceStreamAdapter()
     private val healthWatchdog = HealthWatchdog()
+    private lateinit var voiceStreamAdapter: HttpMjpegVoiceStreamAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         metaAdapter = MetaSdkAdapter(this)
         simulatedSource = SimulatedCameraSource()
-        phoneSource = CameraXPhoneSource(this)
+        phoneSource = CameraXPhoneSource(this).apply { setLifecycleOwner(this@MainActivity) }
+        voiceStreamAdapter = HttpMjpegVoiceStreamAdapter(healthWatchdog)
 
         setContent {
             MaterialTheme {
@@ -106,6 +112,34 @@ fun SightBridgeDashboard(
 
     val phoneIp = remember { MjpegHttpServer.getPhoneIpAddress(context) }
     val systemHealth by healthWatchdog.systemHealth.collectAsState()
+
+    // Activity Result Permission Launcher
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val cameraGranted = permissions[Manifest.permission.CAMERA] ?: true
+        val bluetoothGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            permissions[Manifest.permission.BLUETOOTH_CONNECT] ?: true
+        } else true
+
+        if (cameraGranted && bluetoothGranted) {
+            statusText = "Permissions granted. Ready to connect."
+        } else {
+            statusText = "Error: Required permissions denied."
+        }
+    }
+
+    // Function to switch camera sources safely
+    fun switchCameraSource(newType: CameraSourceType, newSource: CameraSource) {
+        if (selectedSourceType == newType) return
+        val previousSource = activeCameraSource
+        selectedSourceType = newType
+        activeCameraSource = newSource
+        scope.launch(Dispatchers.IO) {
+            runCatching { previousSource.stopStreaming() }
+            runCatching { previousSource.disconnect() }
+        }
+    }
 
     // Start active health watchdog monitoring
     LaunchedEffect(Unit) {
@@ -191,26 +225,17 @@ fun SightBridgeDashboard(
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(
                             selected = selectedSourceType == CameraSourceType.META_GLASSES,
-                            onClick = {
-                                selectedSourceType = CameraSourceType.META_GLASSES
-                                activeCameraSource = metaAdapter
-                            },
+                            onClick = { switchCameraSource(CameraSourceType.META_GLASSES, metaAdapter) },
                             label = { Text("Meta Glasses") }
                         )
                         FilterChip(
                             selected = selectedSourceType == CameraSourceType.MOCK_SIMULATED,
-                            onClick = {
-                                selectedSourceType = CameraSourceType.MOCK_SIMULATED
-                                activeCameraSource = simulatedSource
-                            },
+                            onClick = { switchCameraSource(CameraSourceType.MOCK_SIMULATED, simulatedSource) },
                             label = { Text("Mock Generator") }
                         )
                         FilterChip(
                             selected = selectedSourceType == CameraSourceType.PHONE_CAMERA,
-                            onClick = {
-                                selectedSourceType = CameraSourceType.PHONE_CAMERA
-                                activeCameraSource = phoneSource
-                            },
+                            onClick = { switchCameraSource(CameraSourceType.PHONE_CAMERA, phoneSource) },
                             label = { Text("Phone Camera") }
                         )
                     }
@@ -304,19 +329,33 @@ fun SightBridgeDashboard(
 
                                 val connectResult = activeCameraSource.connect()
                                 if (connectResult.isFailure) {
-                                    statusText = "Error: Camera connection failed"
+                                    val err = connectResult.exceptionOrNull()
+                                    if (err is SecurityException) {
+                                        statusText = "Permission required. Requesting..."
+                                        val reqPerms = mutableListOf(Manifest.permission.CAMERA)
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                            reqPerms.add(Manifest.permission.BLUETOOTH_CONNECT)
+                                        }
+                                        withContext(Dispatchers.Main) {
+                                            permissionLauncher.launch(reqPerms.toTypedArray())
+                                        }
+                                    } else {
+                                        statusText = "Error: Camera connection failed"
+                                    }
                                     return@launch
                                 }
 
                                 val voiceInitResult = voiceAdapter.initialise(VoiceStreamConfig(bindLocalhostOnly = bindLocalhostOnly))
                                 if (voiceInitResult.isFailure) {
                                     statusText = "Error: Voice stream initialization failed"
+                                    activeCameraSource.disconnect()
                                     return@launch
                                 }
 
                                 val voiceStartResult = voiceAdapter.start()
                                 if (voiceStartResult.isFailure) {
                                     statusText = "Error: Voice stream start failed"
+                                    activeCameraSource.disconnect()
                                     return@launch
                                 }
 
@@ -324,6 +363,8 @@ fun SightBridgeDashboard(
                                 val streamResult = activeCameraSource.startStreaming()
                                 if (streamResult.isFailure) {
                                     statusText = "Error: Camera stream start failed"
+                                    voiceAdapter.stop()
+                                    activeCameraSource.disconnect()
                                     return@launch
                                 }
 

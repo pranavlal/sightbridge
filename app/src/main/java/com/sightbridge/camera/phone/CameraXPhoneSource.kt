@@ -1,6 +1,8 @@
 package com.sightbridge.camera.phone
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
@@ -42,7 +44,12 @@ class CameraXPhoneSource(
 
     private val cameraExecutor = Executors.newSingleThreadExecutor()
     private var cameraProvider: ProcessCameraProvider? = null
+    private var activeLifecycleOwner: LifecycleOwner? = null
     private val frameIdCounter = AtomicLong(0)
+
+    fun setLifecycleOwner(lifecycleOwner: LifecycleOwner) {
+        this.activeLifecycleOwner = lifecycleOwner
+    }
 
     override suspend fun initialise(): Result<Unit> = suspendCancellableCoroutine { continuation ->
         val providerFuture = ProcessCameraProvider.getInstance(context)
@@ -59,16 +66,30 @@ class CameraXPhoneSource(
     }
 
     override suspend fun requestPermissions(): PermissionResult {
-        return PermissionResult(granted = true)
+        val granted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+
+        return PermissionResult(
+            granted = granted,
+            deniedPermissions = if (granted) emptyList() else listOf(Manifest.permission.CAMERA)
+        )
     }
 
     override suspend fun connect(): Result<Unit> {
+        val perm = requestPermissions()
+        if (!perm.granted) {
+            _state.value = CameraSourceState.PERMISSION_REQUIRED
+            return Result.failure(SecurityException("CAMERA permission not granted"))
+        }
         _state.value = CameraSourceState.CONNECTED
         return Result.success(Unit)
     }
 
-    fun bindCameraToLifecycle(lifecycleOwner: LifecycleOwner, config: StreamConfig = StreamConfig()) {
-        val provider = cameraProvider ?: return
+    fun bindCameraToLifecycle(lifecycleOwner: LifecycleOwner, config: StreamConfig = StreamConfig()): Result<Unit> {
+        this.activeLifecycleOwner = lifecycleOwner
+        val provider = cameraProvider ?: return Result.failure(IllegalStateException("CameraProvider not initialised"))
         provider.unbindAll()
 
         val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
@@ -98,17 +119,24 @@ class CameraXPhoneSource(
             }
         }
 
-        try {
+        return try {
             provider.bindToLifecycle(lifecycleOwner, cameraSelector, imageAnalysis)
             _state.value = CameraSourceState.STREAMING
+            Result.success(Unit)
         } catch (e: Exception) {
             _state.value = CameraSourceState.FAILED
+            Result.failure(e)
         }
     }
 
     override suspend fun startStreaming(config: StreamConfig): Result<Unit> {
-        _state.value = CameraSourceState.STREAMING
-        return Result.success(Unit)
+        val owner = activeLifecycleOwner
+        return if (owner != null) {
+            bindCameraToLifecycle(owner, config)
+        } else {
+            _state.value = CameraSourceState.STREAMING
+            Result.success(Unit)
+        }
     }
 
     override suspend fun stopStreaming(): Result<Unit> {

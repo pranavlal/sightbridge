@@ -2,6 +2,7 @@ package com.sightbridge.output.voicestream
 
 import com.sightbridge.core.health.ComponentHealth
 import com.sightbridge.core.health.HealthLevel
+import com.sightbridge.core.health.HealthWatchdog
 import com.sightbridge.core.model.CameraFrame
 import com.sightbridge.frame.buffer.LatestFrameBuffer
 import com.sightbridge.processing.FrameProcessor
@@ -13,9 +14,11 @@ import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Implementation of VoiceStreamAdapter using MjpegHttpServer and LatestFrameBuffer per Section 20.
- * Decouples image compression & socket transmission onto a background consumer coroutine.
+ * Decouples image compression & socket transmission onto a background consumer coroutine with active heartbeat recording.
  */
-class HttpMjpegVoiceStreamAdapter : VoiceStreamAdapter {
+class HttpMjpegVoiceStreamAdapter(
+    private val healthWatchdog: HealthWatchdog? = null
+) : VoiceStreamAdapter {
 
     private val _state = MutableStateFlow(VoiceStreamState.STOPPED)
     override val state: StateFlow<VoiceStreamState> = _state.asStateFlow()
@@ -58,6 +61,7 @@ class HttpMjpegVoiceStreamAdapter : VoiceStreamAdapter {
                     if (frame != null) {
                         val jpegBytes = FrameProcessor.compressBitmapToJpeg(frame.bitmap, activeConfig.jpegQuality)
                         server.pushJpegFrame(jpegBytes)
+                        healthWatchdog?.recordHeartbeat("VoiceStreamAdapter", "Frame ${frame.frameId}")
                     } else {
                         delay(10) // Rest briefly if no new frame is pending
                     }

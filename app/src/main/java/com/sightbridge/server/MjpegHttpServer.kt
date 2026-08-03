@@ -14,11 +14,12 @@ import java.util.concurrent.CopyOnWriteArrayList
 /**
  * High-performance HTTP MJPEG Server for streaming camera frames over HTTP /live.mjpeg.
  * Fully thread-safe using Kotlin Coroutines on Dispatchers.IO.
- * Performs active client socket tracking, timeouts, and deterministic cleanup.
+ * Enforces active client limits (maxClients = 10) atomically to prevent connection exhaustion.
  */
 class MjpegHttpServer(
     val port: Int = 8080,
-    @Volatile var bindToLocalhostOnly: Boolean = true
+    @Volatile var bindToLocalhostOnly: Boolean = true,
+    private val maxClients: Int = 10
 ) {
 
     private val tag = "MjpegHttpServer"
@@ -50,8 +51,21 @@ class MjpegHttpServer(
                 while (isRunning && isActive) {
                     try {
                         val clientSocket = socket.accept()
-                        launch {
-                            handleClient(clientSocket)
+                        var accepted = false
+                        synchronized(clientSockets) {
+                            if (clientSockets.size < maxClients) {
+                                clientSockets.add(clientSocket)
+                                accepted = true
+                            }
+                        }
+
+                        if (accepted) {
+                            launch {
+                                handleClient(clientSocket)
+                            }
+                        } else {
+                            Log.w(tag, "Max clients ($maxClients) reached. Rejecting connection from ${clientSocket.remoteSocketAddress}")
+                            rejectClientConnection(clientSocket)
                         }
                     } catch (e: Exception) {
                         if (isRunning) {
@@ -70,13 +84,25 @@ class MjpegHttpServer(
         }
     }
 
+    private fun rejectClientConnection(socket: Socket) {
+        try {
+            val outputStream = socket.getOutputStream()
+            val header = ("HTTP/1.1 503 Service Unavailable\r\n" +
+                    "Connection: close\r\n" +
+                    "Content-Type: text/plain\r\n\r\n" +
+                    "Maximum client connection capacity reached.\r\n")
+            outputStream.write(header.toByteArray(Charsets.US_ASCII))
+            outputStream.flush()
+        } catch (_: Exception) {
+        } finally {
+            try { socket.close() } catch (_: Exception) {}
+        }
+    }
+
     private fun handleClient(socket: Socket) {
         var outputStream: OutputStream? = null
         try {
-            socket.soTimeout = 5000 // Set read timeout to prevent indefinite blocking
             outputStream = socket.getOutputStream()
-            
-            clientSockets.add(socket)
             clientStreams.add(outputStream)
 
             val header = ("HTTP/1.1 200 OK\r\n" +
@@ -95,10 +121,10 @@ class MjpegHttpServer(
             val inputStream = socket.getInputStream()
             val buffer = ByteArray(1024)
             while (isRunning && inputStream.read(buffer) != -1) {
-                // Keep connection alive
+                // Keep HTTP connection open for continuous streaming
             }
         } catch (e: Exception) {
-            Log.d(tag, "Client disconnected or timed out: ${e.message}")
+            Log.d(tag, "Client disconnected: ${e.message}")
         } finally {
             if (outputStream != null) {
                 clientStreams.remove(outputStream)

@@ -31,10 +31,16 @@ class LatestFrameBuffer(
 
     /**
      * Submit a new camera frame to the buffer.
-     * Thread-safe with atomic frame swapping.
+     * Thread-safe with atomic frame swapping and offer timestamp validation.
      */
-    fun offer(frame: CameraFrame) {
+    fun offer(frame: CameraFrame, currentMonotonicNanos: Long = System.nanoTime()) {
         lock.withLock {
+            // Reject frames with future acquisition timestamps immediately
+            if (frame.acquisitionTimestampNanos > currentMonotonicNanos) {
+                _droppedFramesCount.incrementAndGet()
+                return
+            }
+
             _totalProducedCount.incrementAndGet()
             val previous = _latestFrame.value
             if (previous != null) {
@@ -73,7 +79,10 @@ class LatestFrameBuffer(
 
     fun clear() {
         lock.withLock {
-            _latestFrame.value = null
+            if (_latestFrame.value != null) {
+                _droppedFramesCount.incrementAndGet()
+                _latestFrame.value = null
+            }
         }
     }
 

@@ -75,3 +75,11 @@ This document records all interactions, prompts, architectural decisions, and bu
   - **Collector Scope Isolation**: Updated `LaunchedEffect` in `MainActivity.kt` to use structured coroutines bound to the effect lifecycle, ensuring source switching cancels previous frame/state collectors.
   - **State Agreement**: Disabled Localhost toggle switch in `MainActivity.kt` while streaming is active to prevent UI/server configuration disagreement.
   - **Independent Component Cleanup**: Wrapped each component release in `MainActivity.onDestroy()` in its own `runCatching` block to guarantee full cleanup even if one component throws an exception.
+
+### Entry 9: Final Release-Readiness Remediation
+- **Release Fixes Executed**:
+  - **Application Startup Guard**: Wrapped `Wearables.initialize(this)` in `runCatching` in `SightBridgeApp.kt` to prevent startup crashes on non-Meta hardware.
+  - **Persistent MJPEG Client Keep-Alive**: Removed socket read timeout in `MjpegHttpServer.kt` client keep-alive loop so HTTP MJPEG streams remain open indefinitely.
+  - **Atomic Capacity Enforcement**: Synchronously registered accepted client sockets in `MjpegHttpServer.kt` to enforce `maxClients = 10` capacity.
+  - **Permission Launcher Thread Safety**: Wrapped `permissionLauncher.launch()` in `withContext(Dispatchers.Main)` in `MainActivity.kt`.
+  - **Source Switching Unwind**: Implemented automatic `stopStreaming()` and `disconnect()` on previously active camera sources when switching sources in `MainActivity.kt`.

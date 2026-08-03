@@ -1,8 +1,12 @@
 package com.sightbridge.camera.meta
 
+import android.Manifest
 import android.app.Activity
 import android.content.Context
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.os.Build
+import androidx.core.content.ContextCompat
 import com.meta.wearable.dat.core.Wearables
 import com.sightbridge.camera.api.CameraSource
 import com.sightbridge.camera.api.PermissionResult
@@ -54,7 +58,18 @@ class MetaSdkAdapter(
     }
 
     override suspend fun requestPermissions(): PermissionResult {
-        return PermissionResult(granted = true)
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val granted = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.BLUETOOTH_CONNECT
+            ) == PackageManager.PERMISSION_GRANTED
+            PermissionResult(
+                granted = granted,
+                deniedPermissions = if (granted) emptyList() else listOf(Manifest.permission.BLUETOOTH_CONNECT)
+            )
+        } else {
+            PermissionResult(granted = true)
+        }
     }
 
     fun startRegistration(activity: Activity) {
@@ -66,6 +81,11 @@ class MetaSdkAdapter(
     }
 
     override suspend fun connect(): Result<Unit> {
+        val perm = requestPermissions()
+        if (!perm.granted) {
+            _state.value = CameraSourceState.PERMISSION_REQUIRED
+            return Result.failure(SecurityException("BLUETOOTH_CONNECT permission not granted"))
+        }
         _state.value = CameraSourceState.CONNECTING
         _state.value = CameraSourceState.CONNECTED
         return Result.success(Unit)
