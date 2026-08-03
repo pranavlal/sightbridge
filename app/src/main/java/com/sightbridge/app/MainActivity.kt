@@ -1,6 +1,5 @@
 package com.sightbridge.app
 
-import android.graphics.Bitmap
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -13,32 +12,50 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.meta.wearable.dat.camera.types.StreamConfiguration
-import com.meta.wearable.dat.camera.types.VideoQuality
-import com.meta.wearable.dat.core.Wearables
-import com.meta.wearable.dat.core.selectors.AutoDeviceSelector
-import com.meta.wearable.dat.core.types.Device
-import com.meta.wearable.dat.core.types.RegistrationState
-import com.sightbridge.processing.FrameProcessor
+import com.sightbridge.camera.api.CameraSource
+import com.sightbridge.camera.meta.MetaSdkAdapter
+import com.sightbridge.camera.mock.SimulatedCameraSource
+import com.sightbridge.camera.phone.CameraXPhoneSource
+import com.sightbridge.core.health.HealthLevel
+import com.sightbridge.core.health.HealthWatchdog
+import com.sightbridge.core.model.CameraSourceState
+import com.sightbridge.core.model.CameraSourceType
+import com.sightbridge.output.voicestream.HttpMjpegVoiceStreamAdapter
+import com.sightbridge.output.voicestream.VoiceStreamConfig
+import com.sightbridge.output.voicestream.VoiceStreamState
 import com.sightbridge.server.MjpegHttpServer
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
-    private val mjpegServer = MjpegHttpServer(port = 8080, bindToLocalhostOnly = true)
+    private lateinit var metaAdapter: MetaSdkAdapter
+    private lateinit var simulatedSource: SimulatedCameraSource
+    private lateinit var phoneSource: CameraXPhoneSource
+    private val voiceStreamAdapter = HttpMjpegVoiceStreamAdapter()
+    private val healthWatchdog = HealthWatchdog()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        metaAdapter = MetaSdkAdapter(this)
+        simulatedSource = SimulatedCameraSource()
+        phoneSource = CameraXPhoneSource(this)
+
         setContent {
             MaterialTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    DatStreamerScreen(
-                        mjpegServer = mjpegServer,
-                        onStartRegistration = { Wearables.startRegistration(this) },
-                        onStartUnregistration = { Wearables.startUnregistration(this) }
+                    SightBridgeDashboard(
+                        metaAdapter = metaAdapter,
+                        simulatedSource = simulatedSource,
+                        phoneSource = phoneSource,
+                        voiceAdapter = voiceStreamAdapter,
+                        healthWatchdog = healthWatchdog,
+                        onStartMetaRegistration = { metaAdapter.startRegistration(this) },
+                        onStartMetaUnregistration = { metaAdapter.startUnregistration(this) }
                     )
                 }
             }
@@ -47,37 +64,72 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        mjpegServer.stop()
+        runBlocking {
+            runCatching {
+                metaAdapter.release()
+                simulatedSource.release()
+                phoneSource.release()
+                voiceStreamAdapter.release()
+            }
+        }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DatStreamerScreen(
-    mjpegServer: MjpegHttpServer,
-    onStartRegistration: () -> Unit,
-    onStartUnregistration: () -> Unit
+fun SightBridgeDashboard(
+    metaAdapter: MetaSdkAdapter,
+    simulatedSource: SimulatedCameraSource,
+    phoneSource: CameraXPhoneSource,
+    voiceAdapter: HttpMjpegVoiceStreamAdapter,
+    healthWatchdog: HealthWatchdog,
+    onStartMetaRegistration: () -> Unit,
+    onStartMetaUnregistration: () -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var regState by remember { mutableStateOf<RegistrationState?>(null) }
-    var devices by remember { mutableStateOf<List<Device>>(emptyList()) }
-    var statusText by remember { mutableStateOf("Ready to start DAT camera stream") }
-    var isStreaming by remember { mutableStateOf(false) }
 
+    var selectedSourceType by remember { mutableStateOf(CameraSourceType.MOCK_SIMULATED) }
+    var activeCameraSource by remember { mutableStateOf<CameraSource>(simulatedSource) }
+    var cameraState by remember { mutableStateOf(CameraSourceState.UNINITIALISED) }
+    var voiceState by remember { mutableStateOf(VoiceStreamState.STOPPED) }
     var bindLocalhostOnly by remember { mutableStateOf(true) }
-    var isServerRunning by remember { mutableStateOf(false) }
-    val phoneIp = remember { MjpegHttpServer.getPhoneIpAddress(context) }
+    var statusText by remember { mutableStateOf("System ready") }
+    var droppedFrames by remember { mutableLongStateOf(0L) }
 
-    LaunchedEffect(Unit) {
+    val phoneIp = remember { MjpegHttpServer.getPhoneIpAddress(context) }
+    val systemHealth by healthWatchdog.systemHealth.collectAsState()
+
+    // Observe active camera source state
+    LaunchedEffect(activeCameraSource) {
         scope.launch {
-            Wearables.registrationState.collect { state ->
-                regState = state
+            activeCameraSource.state.collect { state ->
+                cameraState = state
+                healthWatchdog.updateHealth(
+                    component = "CameraSource",
+                    status = if (state == CameraSourceState.STREAMING) HealthLevel.HEALTHY else HealthLevel.DEGRADED,
+                    detailCode = state.name
+                )
             }
         }
         scope.launch {
-            Wearables.devices.collect { deviceSet ->
-                devices = deviceSet.toList()
+            activeCameraSource.frames.collect { frame ->
+                voiceAdapter.submitFrame(frame)
+                droppedFrames = voiceAdapter.droppedFramesCount
+            }
+        }
+    }
+
+    // Observe vOICe stream state
+    LaunchedEffect(voiceAdapter) {
+        scope.launch {
+            voiceAdapter.state.collect { state ->
+                voiceState = state
+                healthWatchdog.updateHealth(
+                    component = "VoiceStreamAdapter",
+                    status = if (state == VoiceStreamState.STREAMING) HealthLevel.HEALTHY else HealthLevel.UNAVAILABLE,
+                    detailCode = state.name
+                )
             }
         }
     }
@@ -85,7 +137,7 @@ fun DatStreamerScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("SightBridge - DAT HTTP Streamer") },
+                title = { Text("SightBridge - Blind Navigation System") },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -98,40 +150,62 @@ fun DatStreamerScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Section 1: Wearables Registration
+            // 1. Camera Source Selector
             ElevatedCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "1. Meta Wearables Connection",
-                        style = MaterialTheme.typography.titleMedium
-                    )
+                    Text("1. Select Camera Input Source", style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = selectedSourceType == CameraSourceType.META_GLASSES,
+                            onClick = {
+                                selectedSourceType = CameraSourceType.META_GLASSES
+                                activeCameraSource = metaAdapter
+                            },
+                            label = { Text("Meta Glasses") }
+                        )
+                        FilterChip(
+                            selected = selectedSourceType == CameraSourceType.MOCK_SIMULATED,
+                            onClick = {
+                                selectedSourceType = CameraSourceType.MOCK_SIMULATED
+                                activeCameraSource = simulatedSource
+                            },
+                            label = { Text("Mock Generator") }
+                        )
+                        FilterChip(
+                            selected = selectedSourceType == CameraSourceType.PHONE_CAMERA,
+                            onClick = {
+                                selectedSourceType = CameraSourceType.PHONE_CAMERA
+                                activeCameraSource = phoneSource
+                            },
+                            label = { Text("Phone Camera") }
+                        )
+                    }
+
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Registration: ${regState ?: "Disconnected"}",
-                        style = MaterialTheme.typography.bodyMedium,
+                        text = "Source State: $cameraState",
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.secondary
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = onStartRegistration) {
-                            Text("Register App")
-                        }
-                        OutlinedButton(onClick = onStartUnregistration) {
-                            Text("Unregister")
+
+                    if (selectedSourceType == CameraSourceType.META_GLASSES) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = onStartMetaRegistration) { Text("Register Meta App") }
+                            OutlinedButton(onClick = onStartMetaUnregistration) { Text("Unregister") }
                         }
                     }
                 }
             }
 
-            // Section 2: HTTP MJPEG Server Binding Settings
+            // 2. vOICe HTTP Media Streamer Settings
             ElevatedCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "2. HTTP MJPEG Server Settings",
-                        style = MaterialTheme.typography.titleMedium
-                    )
+                    Text("2. The vOICe HTTP Stream Binding", style = MaterialTheme.typography.titleMedium)
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Row(
@@ -145,10 +219,7 @@ fun DatStreamerScreen(
                                 style = MaterialTheme.typography.bodyMedium
                             )
                             Text(
-                                text = if (bindLocalhostOnly)
-                                    "Restricted to apps on this phone (e.g. The vOICe)"
-                                else
-                                    "Accessible by all devices on local Wi-Fi",
+                                text = if (bindLocalhostOnly) "Private to local phone apps (The vOICe)" else "Accessible by local Wi-Fi devices",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.outline
                             )
@@ -157,23 +228,11 @@ fun DatStreamerScreen(
                             checked = bindLocalhostOnly,
                             onCheckedChange = { checked ->
                                 bindLocalhostOnly = checked
-                                mjpegServer.bindToLocalhostOnly = checked
-                                if (isServerRunning) {
-                                    mjpegServer.stop()
-                                    mjpegServer.start()
-                                }
                             }
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Stream URLs Display
-                    Text(
-                        text = "Active Stream Endpoint:",
-                        style = MaterialTheme.typography.labelLarge
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     Surface(
                         color = MaterialTheme.colorScheme.surfaceVariant,
                         shape = MaterialTheme.shapes.small,
@@ -181,108 +240,79 @@ fun DatStreamerScreen(
                     ) {
                         Column(modifier = Modifier.padding(8.dp)) {
                             Text(
-                                text = "Localhost: http://127.0.0.1:8080/live.mjpeg",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                text = "Localhost Endpoint: http://127.0.0.1:8080/live.mjpeg",
+                                style = MaterialTheme.typography.bodySmall
                             )
                             if (!bindLocalhostOnly && phoneIp != null) {
                                 Text(
-                                    text = "Wi-Fi LAN:   http://$phoneIp:8080/live.mjpeg",
+                                    text = "Wi-Fi LAN Endpoint: http://$phoneIp:8080/live.mjpeg",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.primary
                                 )
                             }
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Button(
-                        onClick = {
-                            if (!isServerRunning) {
-                                mjpegServer.start()
-                                isServerRunning = true
-                            } else {
-                                mjpegServer.stop()
-                                isServerRunning = false
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(if (isServerRunning) "Stop HTTP Server" else "Start HTTP MJPEG Server")
-                    }
                 }
             }
 
-            // Section 3: Camera Stream Control
+            // 3. Navigation & Stream Controls
             ElevatedCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "3. Glasses Stream Controller",
-                        style = MaterialTheme.typography.titleMedium
-                    )
+                    Text("3. Navigation Pipeline Controller", style = MaterialTheme.typography.titleMedium)
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Button(
                         onClick = {
                             scope.launch {
-                                statusText = "Creating session with AutoDeviceSelector..."
-                                val sessionResult = Wearables.createSession(AutoDeviceSelector())
-                                sessionResult.fold(
-                                    onSuccess = { session ->
-                                        session.start()
-                                        statusText = "Session started. Adding camera stream..."
-                                        val config = StreamConfiguration(
-                                            videoQuality = VideoQuality.MEDIUM,
-                                            frameRate = 24
-                                        )
-                                        session.addStream(config).fold(
-                                            onSuccess = { stream ->
-                                                isStreaming = true
-                                                statusText = "Streaming active at 24 FPS!"
+                                statusText = "Initialising source..."
+                                activeCameraSource.initialise()
+                                activeCameraSource.connect()
 
-                                                // Automatically start HTTP server if not running
-                                                if (!isServerRunning) {
-                                                    mjpegServer.start()
-                                                    isServerRunning = true
-                                                }
+                                voiceAdapter.initialise(VoiceStreamConfig(bindLocalhostOnly = bindLocalhostOnly))
+                                voiceAdapter.start()
 
-                                                // Collect frames and push to HTTP MJPEG Server
-                                                scope.launch {
-                                                    stream.videoStream.collect { videoFrame ->
-                                                        val bitmap: Bitmap? = videoFrame.bitmap
-                                                        if (bitmap != null && isServerRunning) {
-                                                            val jpegBytes = FrameProcessor.compressBitmapToJpeg(bitmap)
-                                                            mjpegServer.pushJpegFrame(jpegBytes)
-                                                        }
-                                                    }
-                                                }
-
-                                                stream.start()
-                                            },
-                                            onFailure = { error, _ ->
-                                                statusText = "Stream Error: ${error.description}"
-                                            }
-                                        )
-                                    },
-                                    onFailure = { error ->
-                                        statusText = "Session Error: ${error.description}"
-                                    }
-                                )
+                                statusText = "Starting camera stream..."
+                                activeCameraSource.startStreaming()
+                                statusText = "Streaming active!"
                             }
                         },
-                        enabled = !isStreaming,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = cameraState != CameraSourceState.STREAMING
                     ) {
-                        Text(if (isStreaming) "Streaming to HTTP..." else "Start Glasses Stream")
+                        Text(if (cameraState == CameraSourceState.STREAMING) "Streaming Active" else "Start Navigation Pipeline")
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = statusText,
+                        text = "Dropped Frames: $droppedFrames | Status: $statusText",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.tertiary
                     )
+                }
+            }
+
+            // 4. System Health Watchdog Overview
+            ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("4. System Health Watchdog", style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    if (systemHealth.isEmpty()) {
+                        Text("No components registered", style = MaterialTheme.typography.bodySmall)
+                    } else {
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.heightIn(max = 100.dp)
+                        ) {
+                            items(systemHealth.values.toList()) { health ->
+                                Text(
+                                    text = "• ${health.component}: ${health.status} (${health.detailCode ?: ""})",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (health.status == HealthLevel.HEALTHY) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }

@@ -6,16 +6,14 @@
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- Camera permission for Mock Device Kit phone camera streaming -->
+    <!-- Camera permission for phone fallback & mock testing -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
-        android:name=".SightBridgeApp"
+        android:name=".app.SightBridgeApp"
         android:allowBackup="true"
-        android:icon="@mipmap/ic_launcher"
         android:label="SightBridge"
-        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
 
@@ -44,7 +42,7 @@
         </provider>
 
         <activity
-            android:name=".MainActivity"
+            android:name=".app.MainActivity"
             android:exported="true"
             android:theme="@android:style/Theme.Material.Light.NoActionBar">
             <intent-filter>
