@@ -1,0 +1,18 @@
+# Secrets and local configuration
+local.properties
+
+# Gradle files
+.gradle/
+build/
+app/build/
+*.apk
+*.aar
+
+# IDE & Editor files
+.idea/
+*.iml
+.vscode/
+
+# OS generated files
+.DS_Store
+Thumbs.db

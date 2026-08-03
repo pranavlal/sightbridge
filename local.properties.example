@@ -1,0 +1,6 @@
+# Android SDK Location on Arch Linux
+sdk.dir=/opt/android-sdk
+
+# GitHub Personal Access Token (classic) with `read:packages` scope
+# Needed to download DAT SDK artifacts from https://maven.pkg.github.com/facebook/meta-wearables-dat-android
+github_token=YOUR_GITHUB_PERSONAL_ACCESS_TOKEN
