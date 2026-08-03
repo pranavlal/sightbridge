@@ -1,22 +1,19 @@
 package com.sightbridge.server
 
 import android.content.Context
-import android.net.wifi.WifiManager
 import android.util.Log
+import kotlinx.coroutines.*
 import java.io.OutputStream
+import java.net.Inet4Address
 import java.net.InetAddress
+import java.net.NetworkInterface
 import java.net.ServerSocket
 import java.net.Socket
 import java.util.concurrent.CopyOnWriteArrayList
-import kotlin.concurrent.thread
 
 /**
- * High-performance HTTP MJPEG Server for streaming Meta Glasses video feed.
- * Serves a multipart/x-mixed-replace JPEG stream over HTTP on /live.mjpeg.
- *
- * Supports two binding modes:
- * - bindToLocalhostOnly = true  => Binds to 127.0.0.1 (Strictly accessible by local Android apps on phone, e.g. The vOICe)
- * - bindToLocalhostOnly = false => Binds to 0.0.0.0 (Accessible across local Wi-Fi network)
+ * High-performance HTTP MJPEG Server for streaming camera frames over HTTP /live.mjpeg.
+ * Fully thread-safe using Kotlin Coroutines on Dispatchers.IO.
  */
 class MjpegHttpServer(
     val port: Int = 8080,
@@ -28,12 +25,13 @@ class MjpegHttpServer(
     @Volatile
     private var isRunning = false
     private val clientStreams = CopyOnWriteArrayList<OutputStream>()
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     fun start() {
         if (isRunning) return
         isRunning = true
 
-        thread(name = "MjpegServerThread") {
+        scope.launch {
             try {
                 val bindAddress = if (bindToLocalhostOnly) {
                     InetAddress.getByName("127.0.0.1")
@@ -44,9 +42,9 @@ class MjpegHttpServer(
                 serverSocket = ServerSocket(port, 50, bindAddress)
                 Log.i(tag, "MJPEG Server running on ${bindAddress.hostAddress}:$port (LocalhostOnly=$bindToLocalhostOnly)")
 
-                while (isRunning) {
+                while (isRunning && isActive) {
                     val socket = serverSocket?.accept() ?: break
-                    thread(name = "HttpClientThread") {
+                    launch {
                         handleClient(socket)
                     }
                 }
@@ -78,7 +76,7 @@ class MjpegHttpServer(
             val inputStream = socket.getInputStream()
             val buffer = ByteArray(1024)
             while (isRunning && inputStream.read(buffer) != -1) {
-                // Keep connection open
+                // Keep connection alive
             }
         } catch (e: Exception) {
             Log.d(tag, "Client disconnected: ${e.message}")
@@ -134,17 +132,25 @@ class MjpegHttpServer(
     fun isServerRunning(): Boolean = isRunning
 
     companion object {
+        /**
+         * Discovers local IPv4 address across all active non-loopback network interfaces.
+         */
         fun getPhoneIpAddress(context: Context): String? {
             return try {
-                val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-                val ip = wifiManager.connectionInfo.ipAddress
-                if (ip == 0) null else String.format(
-                    "%d.%d.%d.%d",
-                    ip and 0xff,
-                    ip shr 8 and 0xff,
-                    ip shr 16 and 0xff,
-                    ip shr 24 and 0xff
-                )
+                val interfaces = NetworkInterface.getNetworkInterfaces()
+                while (interfaces.hasMoreElements()) {
+                    val networkInterface = interfaces.nextElement()
+                    if (networkInterface.isLoopback || !networkInterface.isUp) continue
+
+                    val addresses = networkInterface.inetAddresses
+                    while (addresses.hasMoreElements()) {
+                        val addr = addresses.nextElement()
+                        if (!addr.isLoopbackAddress && addr is Inet4Address) {
+                            return addr.hostAddress
+                        }
+                    }
+                }
+                null
             } catch (e: Exception) {
                 null
             }

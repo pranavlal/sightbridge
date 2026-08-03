@@ -6,11 +6,16 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.sightbridge.camera.api.CameraSource
 import com.sightbridge.camera.meta.MetaSdkAdapter
@@ -24,8 +29,9 @@ import com.sightbridge.output.voicestream.HttpMjpegVoiceStreamAdapter
 import com.sightbridge.output.voicestream.VoiceStreamConfig
 import com.sightbridge.output.voicestream.VoiceStreamState
 import com.sightbridge.server.MjpegHttpServer
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 class MainActivity : ComponentActivity() {
 
@@ -64,6 +70,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        healthWatchdog.stopWatchdog()
         runBlocking {
             runCatching {
                 metaAdapter.release()
@@ -88,6 +95,7 @@ fun SightBridgeDashboard(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val scrollState = rememberScrollState()
 
     var selectedSourceType by remember { mutableStateOf(CameraSourceType.MOCK_SIMULATED) }
     var activeCameraSource by remember { mutableStateOf<CameraSource>(simulatedSource) }
@@ -100,9 +108,14 @@ fun SightBridgeDashboard(
     val phoneIp = remember { MjpegHttpServer.getPhoneIpAddress(context) }
     val systemHealth by healthWatchdog.systemHealth.collectAsState()
 
-    // Observe active camera source state
+    // Start active health watchdog monitoring
+    LaunchedEffect(Unit) {
+        healthWatchdog.startWatchdog(scope)
+    }
+
+    // Observe active camera source state on Dispatchers.Default
     LaunchedEffect(activeCameraSource) {
-        scope.launch {
+        scope.launch(Dispatchers.Default) {
             activeCameraSource.state.collect { state ->
                 cameraState = state
                 healthWatchdog.updateHealth(
@@ -112,7 +125,7 @@ fun SightBridgeDashboard(
                 )
             }
         }
-        scope.launch {
+        scope.launch(Dispatchers.Default) {
             activeCameraSource.frames.collect { frame ->
                 voiceAdapter.submitFrame(frame)
                 droppedFrames = voiceAdapter.droppedFramesCount
@@ -122,7 +135,7 @@ fun SightBridgeDashboard(
 
     // Observe vOICe stream state
     LaunchedEffect(voiceAdapter) {
-        scope.launch {
+        scope.launch(Dispatchers.Default) {
             voiceAdapter.state.collect { state ->
                 voiceState = state
                 healthWatchdog.updateHealth(
@@ -149,9 +162,26 @@ fun SightBridgeDashboard(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .verticalScroll(scrollState)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // TalkBack Live Region Status Banner
+            Surface(
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics { liveRegion = LiveRegionMode.Polite }
+            ) {
+                Text(
+                    text = "Status: $statusText | Camera: $cameraState",
+                    modifier = Modifier.padding(12.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+
             // 1. Camera Source Selector
             ElevatedCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -263,7 +293,7 @@ fun SightBridgeDashboard(
 
                     Button(
                         onClick = {
-                            scope.launch {
+                            scope.launch(Dispatchers.IO) {
                                 statusText = "Initialising source..."
                                 activeCameraSource.initialise()
                                 activeCameraSource.connect()
@@ -302,7 +332,7 @@ fun SightBridgeDashboard(
                     } else {
                         LazyColumn(
                             verticalArrangement = Arrangement.spacedBy(4.dp),
-                            modifier = Modifier.heightIn(max = 100.dp)
+                            modifier = Modifier.heightIn(max = 120.dp)
                         ) {
                             items(systemHealth.values.toList()) { health ->
                                 Text(

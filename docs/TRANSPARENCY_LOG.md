@@ -41,6 +41,13 @@ This document records all interactions, prompts, architectural decisions, and bu
   - `com.sightbridge.frame.buffer`: Implemented `LatestFrameBuffer` non-blocking frame buffer with stale frame dropping (`maxStaleAgeMs = 500`) per Section 6.2 & 10.3.
   - `com.sightbridge.output.voicestream`: Implemented `VoiceStreamAdapter` interface & `HttpMjpegVoiceStreamAdapter` implementation per Section 20.
   - `com.sightbridge.app`: Updated `MainActivity.kt` Compose dashboard for multi-source camera selection, health watchdog indicators, and vOICe stream endpoints.
-- **Testing**:
-  - Created unit tests `LatestFrameBufferTest` and `VoiceStreamAdapterTest`.
-  - Verified `./gradlew test` passes 100% cleanly (45 actionable tasks executed, BUILD SUCCESSFUL).
+
+### Entry 5: Codex CLI Codebase Audit & Remediation
+- **Audit Findings Executed**:
+  - **Thread Safety**: Added `ReentrantLock` synchronization to `LatestFrameBuffer` to prevent atomic offer/poll race conditions.
+  - **Monotonic Freshness**: Enforced non-negative age validation and future timestamp rejection in `LatestFrameBuffer.poll()`.
+  - **HTTP Server**: Refactored `MjpegHttpServer` to use structured Kotlin coroutines (`Dispatchers.IO`) and `NetworkInterface` enumeration for IPv4 address discovery.
+  - **Active Watchdog**: Added active background watchdog loop to `HealthWatchdog` to automatically detect frame freezes (> 2.0s without frames) and mark components `DEGRADED`.
+  - **CameraX Binding**: Updated `CameraXPhoneSource` with full `ProcessCameraProvider` and `ImageAnalysis` lifecycle binding.
+  - **Accessibility**: Updated `MainActivity.kt` with scrollable layout and TalkBack live-region announcements (`LiveRegionMode.Polite`).
+  - **Testing**: Added `HealthWatchdogTest` covering active staleness detection. Executed `./gradlew test` with 100% clean pass (**BUILD SUCCESSFUL in 4s**).
