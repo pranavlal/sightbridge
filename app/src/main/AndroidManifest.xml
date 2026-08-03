@@ -12,7 +12,7 @@
 
     <application
         android:name=".app.SightBridgeApp"
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
@@ -43,20 +43,20 @@
 
         <activity
             android:name=".app.MainActivity"
-            android:exported="true"
-            android:label="@string/app_name"
-            android:theme="@android:style/Theme.Material.Light.NoActionBar">
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Intent filter callback scheme used by Meta AI app -->
+            <!-- Meta DAT OAuth Callback Deep Link -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="sightbridge" />
+                <data
+                    android:host="auth"
+                    android:scheme="sightbridge" />
             </intent-filter>
         </activity>
     </application>

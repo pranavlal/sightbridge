@@ -99,3 +99,12 @@ This document records all interactions, prompts, architectural decisions, and bu
   - Validated Material 3 `FilterChip` and `Button` accessibility roles, selection states, and 48dp touch targets.
   - Implemented `AccessibilitySemanticsTest.kt` unit test suite covering TalkBack live region modes, status announcement formatting, and magnifier scrollable layout bounds.
   - Executed `./gradlew test` with **100% clean pass**.
+
+### Entry 12: Information Security & Data Protection Hardening
+- **Requirement**: Perform information security review and execute security hardening fixes.
+- **Actions**:
+  - Disabled cloud backup in `AndroidManifest.xml` (`android:allowBackup="false"`) to prevent local video stream metadata from leaking to cloud backups.
+  - Restricted `FileProvider` cache path in `file_paths.xml` to a dedicated `shared_photos/` subdirectory.
+  - Restricted `sightbridge:` deep link intent filter data host to `android:host="auth"` in `AndroidManifest.xml`.
+  - Pinned Gradle distribution SHA256 checksum (`distributionSha256Sum`) in `gradle-wrapper.properties`.
+  - Verified no hardcoded tokens or API secrets exist in source code or Git history.
