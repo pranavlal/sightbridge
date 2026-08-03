@@ -58,3 +58,11 @@ This document records all interactions, prompts, architectural decisions, and bu
   - **Heartbeat & Automatic Recovery**: Added `recordHeartbeat()` in `HealthWatchdog` registered on frame arrival, enabling automatic state recovery from `DEGRADED` to `HEALTHY`.
   - **CameraX Buffer Safety**: Wrapped `CameraXPhoneSource` frame creation in `try { ... } finally { imageProxy.close() }` to guarantee Android CameraX buffer release.
   - **Pipeline Startup Validation**: Updated `MainActivity.kt` to check `Result.isSuccess` on all startup steps (`initialise()`, `connect()`, `start()`, `startStreaming()`) and report typed errors if any step fails.
+
+### Entry 7: Application Naming & APK Output Customization
+- **Requirement**: Set exact application display name to `sightBridge` and configure the debug APK filename output to `sightBridge-debug.apk`.
+- **Actions**:
+  - Created `app/src/main/res/values/strings.xml` with `<string name="app_name">sightBridge</string>`.
+  - Updated `AndroidManifest.xml` application and activity labels to `@string/app_name`.
+  - Updated `app/build.gradle.kts` variant output configuration to generate `sightBridge-debug.apk`.
+  - Successfully built `app/build/outputs/apk/debug/sightBridge-debug.apk` (71.2 MB).
