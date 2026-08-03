@@ -72,12 +72,11 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
         healthWatchdog.stopWatchdog()
         runBlocking {
-            runCatching {
-                metaAdapter.release()
-                simulatedSource.release()
-                phoneSource.release()
-                voiceStreamAdapter.release()
-            }
+            // Wrap each component release independently so one failure does not skip remaining cleanups
+            runCatching { metaAdapter.release() }
+            runCatching { simulatedSource.release() }
+            runCatching { phoneSource.release() }
+            runCatching { voiceStreamAdapter.release() }
         }
     }
 }
@@ -113,9 +112,9 @@ fun SightBridgeDashboard(
         healthWatchdog.startWatchdog(scope)
     }
 
-    // Observe active camera source state on Dispatchers.Default
+    // Observe active camera source state: use this.launch to automatically cancel on source switch
     LaunchedEffect(activeCameraSource) {
-        scope.launch(Dispatchers.Default) {
+        launch(Dispatchers.Default) {
             activeCameraSource.state.collect { state ->
                 cameraState = state
                 healthWatchdog.updateHealth(
@@ -125,7 +124,7 @@ fun SightBridgeDashboard(
                 )
             }
         }
-        scope.launch(Dispatchers.Default) {
+        launch(Dispatchers.Default) {
             activeCameraSource.frames.collect { frame ->
                 healthWatchdog.recordHeartbeat("CameraSource", "Frame ${frame.frameId}")
                 voiceAdapter.submitFrame(frame)
@@ -136,7 +135,7 @@ fun SightBridgeDashboard(
 
     // Observe vOICe stream state
     LaunchedEffect(voiceAdapter) {
-        scope.launch(Dispatchers.Default) {
+        launch(Dispatchers.Default) {
             voiceAdapter.state.collect { state ->
                 voiceState = state
                 healthWatchdog.updateHealth(
@@ -259,7 +258,8 @@ fun SightBridgeDashboard(
                             checked = bindLocalhostOnly,
                             onCheckedChange = { checked ->
                                 bindLocalhostOnly = checked
-                            }
+                            },
+                            enabled = voiceState != VoiceStreamState.STREAMING
                         )
                     }
 

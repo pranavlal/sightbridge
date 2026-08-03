@@ -84,11 +84,11 @@ class MetaSdkAdapter(
 
             if (sessionResult != null) {
                 _state.value = CameraSourceState.STREAMING
+                Result.success(Unit)
             } else {
                 _state.value = CameraSourceState.FAILED
+                Result.failure(Exception("DAT session creation failed"))
             }
-
-            Result.success(Unit)
         } catch (e: Exception) {
             _state.value = CameraSourceState.FAILED
             Result.failure(e)

@@ -14,6 +14,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 /**
  * High-performance HTTP MJPEG Server for streaming camera frames over HTTP /live.mjpeg.
  * Fully thread-safe using Kotlin Coroutines on Dispatchers.IO.
+ * Performs active client socket tracking, timeouts, and deterministic cleanup.
  */
 class MjpegHttpServer(
     val port: Int = 8080,
@@ -25,40 +26,59 @@ class MjpegHttpServer(
     @Volatile
     private var isRunning = false
     private val clientStreams = CopyOnWriteArrayList<OutputStream>()
+    private val clientSockets = CopyOnWriteArrayList<Socket>()
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var acceptJob: Job? = null
 
-    fun start() {
-        if (isRunning) return
-        isRunning = true
+    fun start(): Result<Unit> {
+        if (isRunning) return Result.success(Unit)
 
-        scope.launch {
-            try {
-                val bindAddress = if (bindToLocalhostOnly) {
-                    InetAddress.getByName("127.0.0.1")
-                } else {
-                    InetAddress.getByName("0.0.0.0")
-                }
+        return try {
+            val bindAddress = if (bindToLocalhostOnly) {
+                InetAddress.getByName("127.0.0.1")
+            } else {
+                InetAddress.getByName("0.0.0.0")
+            }
 
-                serverSocket = ServerSocket(port, 50, bindAddress)
-                Log.i(tag, "MJPEG Server running on ${bindAddress.hostAddress}:$port (LocalhostOnly=$bindToLocalhostOnly)")
+            val socket = ServerSocket(port, 50, bindAddress)
+            serverSocket = socket
+            isRunning = true
 
+            Log.i(tag, "MJPEG Server running on ${bindAddress.hostAddress}:$port (LocalhostOnly=$bindToLocalhostOnly)")
+
+            acceptJob = scope.launch {
                 while (isRunning && isActive) {
-                    val socket = serverSocket?.accept() ?: break
-                    launch {
-                        handleClient(socket)
+                    try {
+                        val clientSocket = socket.accept()
+                        launch {
+                            handleClient(clientSocket)
+                        }
+                    } catch (e: Exception) {
+                        if (isRunning) {
+                            Log.e(tag, "Accept loop exception: ${e.message}")
+                        }
+                        break
                     }
                 }
-            } catch (e: Exception) {
-                if (isRunning) {
-                    Log.e(tag, "Server socket error: ${e.message}", e)
-                }
             }
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            isRunning = false
+            Log.e(tag, "Failed to start MJPEG Server on port $port: ${e.message}", e)
+            Result.failure(e)
         }
     }
 
     private fun handleClient(socket: Socket) {
+        var outputStream: OutputStream? = null
         try {
-            val outputStream = socket.getOutputStream()
+            socket.soTimeout = 5000 // Set read timeout to prevent indefinite blocking
+            outputStream = socket.getOutputStream()
+            
+            clientSockets.add(socket)
+            clientStreams.add(outputStream)
+
             val header = ("HTTP/1.1 200 OK\r\n" +
                     "Connection: close\r\n" +
                     "Max-Age: 0\r\n" +
@@ -70,8 +90,7 @@ class MjpegHttpServer(
             outputStream.write(header.toByteArray(Charsets.US_ASCII))
             outputStream.flush()
 
-            clientStreams.add(outputStream)
-            Log.i(tag, "Client connected: ${socket.remoteSocketAddress}. Active streams: ${clientStreams.size}")
+            Log.i(tag, "Client connected: ${socket.remoteSocketAddress}. Active clients: ${clientSockets.size}")
 
             val inputStream = socket.getInputStream()
             val buffer = ByteArray(1024)
@@ -79,8 +98,12 @@ class MjpegHttpServer(
                 // Keep connection alive
             }
         } catch (e: Exception) {
-            Log.d(tag, "Client disconnected: ${e.message}")
+            Log.d(tag, "Client disconnected or timed out: ${e.message}")
         } finally {
+            if (outputStream != null) {
+                clientStreams.remove(outputStream)
+            }
+            clientSockets.remove(socket)
             try {
                 socket.close()
             } catch (_: Exception) {}
@@ -120,12 +143,25 @@ class MjpegHttpServer(
 
     fun stop() {
         isRunning = false
+        acceptJob?.cancel()
+        acceptJob = null
+
         try {
             serverSocket?.close()
         } catch (e: Exception) {
             Log.e(tag, "Error closing server socket: ${e.message}")
         }
+        serverSocket = null
+
+        // Explicitly close all connected client sockets
+        for (socket in clientSockets) {
+            try {
+                socket.close()
+            } catch (_: Exception) {}
+        }
+        clientSockets.clear()
         clientStreams.clear()
+
         Log.i(tag, "MJPEG Server stopped.")
     }
 

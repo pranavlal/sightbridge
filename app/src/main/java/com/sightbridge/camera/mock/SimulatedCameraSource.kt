@@ -20,6 +20,7 @@ import java.util.concurrent.atomic.AtomicLong
 /**
  * Synthetic test frame generator (Mock Camera Source).
  * Generates continuous synthetic test pattern frames with timestamps for testing without hardware.
+ * Optimized with persistent Paint resources to minimize GC allocations.
  */
 class SimulatedCameraSource(
     private val targetWidth: Int = 640,
@@ -43,6 +44,17 @@ class SimulatedCameraSource(
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private val frameIdCounter = AtomicLong(0)
 
+    // Reusable Paint resources to eliminate per-frame allocations
+    private val textPaint = Paint().apply {
+        color = Color.WHITE
+        textSize = 32f
+        isAntiAlias = true
+    }
+    private val redPaint = Paint().apply { color = Color.RED }
+    private val greenPaint = Paint().apply { color = Color.GREEN }
+    private val bluePaint = Paint().apply { color = Color.BLUE }
+    private val yellowPaint = Paint().apply { color = Color.YELLOW }
+
     override suspend fun initialise(): Result<Unit> {
         _state.value = CameraSourceState.READY
         return Result.success(Unit)
@@ -65,26 +77,21 @@ class SimulatedCameraSource(
 
         streamJob = scope.launch {
             _state.value = CameraSourceState.STREAMING
-            val paint = Paint().apply {
-                color = Color.WHITE
-                textSize = 32f
-                isAntiAlias = true
-            }
+            val barWidth = targetWidth / 4
 
             while (isActive) {
                 val acqNanos = System.nanoTime()
                 val bitmap = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
                 val canvas = Canvas(bitmap)
 
-                // Render synthetic color bars
-                val barWidth = targetWidth / 4
-                canvas.drawRect(0f, 0f, barWidth.toFloat(), targetHeight.toFloat(), Paint().apply { color = Color.RED })
-                canvas.drawRect(barWidth.toFloat(), 0f, (barWidth * 2).toFloat(), targetHeight.toFloat(), Paint().apply { color = Color.GREEN })
-                canvas.drawRect((barWidth * 2).toFloat(), 0f, (barWidth * 3).toFloat(), targetHeight.toFloat(), Paint().apply { color = Color.BLUE })
-                canvas.drawRect((barWidth * 3).toFloat(), 0f, targetWidth.toFloat(), targetHeight.toFloat(), Paint().apply { color = Color.YELLOW })
+                // Render synthetic color bars with persistent Paint objects
+                canvas.drawRect(0f, 0f, barWidth.toFloat(), targetHeight.toFloat(), redPaint)
+                canvas.drawRect(barWidth.toFloat(), 0f, (barWidth * 2).toFloat(), targetHeight.toFloat(), greenPaint)
+                canvas.drawRect((barWidth * 2).toFloat(), 0f, (barWidth * 3).toFloat(), targetHeight.toFloat(), bluePaint)
+                canvas.drawRect((barWidth * 3).toFloat(), 0f, targetWidth.toFloat(), targetHeight.toFloat(), yellowPaint)
 
                 val frameId = frameIdCounter.incrementAndGet()
-                canvas.drawText("SIMULATED FRAME #$frameId", 40f, 60f, paint)
+                canvas.drawText("SIMULATED FRAME #$frameId", 40f, 60f, textPaint)
 
                 val recNanos = System.nanoTime()
                 val cameraFrame = CameraFrame(

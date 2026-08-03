@@ -30,6 +30,7 @@ class HttpMjpegVoiceStreamAdapter : VoiceStreamAdapter {
         get() = frameBuffer.droppedFramesCount
 
     override suspend fun initialise(config: VoiceStreamConfig): Result<Unit> {
+        stop() // Safely stop and release any existing server instance before reinitialization
         activeConfig = config
         mjpegServer = MjpegHttpServer(port = config.port, bindToLocalhostOnly = config.bindLocalhostOnly)
         return Result.success(Unit)
@@ -39,18 +40,31 @@ class HttpMjpegVoiceStreamAdapter : VoiceStreamAdapter {
         if (_state.value == VoiceStreamState.STREAMING) return Result.success(Unit)
 
         _state.value = VoiceStreamState.STARTING
-        mjpegServer?.start()
+        val server = mjpegServer ?: return Result.failure(IllegalStateException("Server not initialised"))
+        
+        val startResult = server.start()
+        if (startResult.isFailure) {
+            _state.value = VoiceStreamState.FAILED
+            return startResult
+        }
+
         _state.value = VoiceStreamState.STREAMING
 
         // Launch background consumer loop to poll latest frames asynchronously
         consumerJob = scope.launch {
-            while (isActive && _state.value == VoiceStreamState.STREAMING) {
-                val frame = frameBuffer.poll()
-                if (frame != null) {
-                    val jpegBytes = FrameProcessor.compressBitmapToJpeg(frame.bitmap, activeConfig.jpegQuality)
-                    mjpegServer?.pushJpegFrame(jpegBytes)
-                } else {
-                    delay(10) // Rest briefly if no new frame is pending
+            try {
+                while (isActive && _state.value == VoiceStreamState.STREAMING) {
+                    val frame = frameBuffer.poll()
+                    if (frame != null) {
+                        val jpegBytes = FrameProcessor.compressBitmapToJpeg(frame.bitmap, activeConfig.jpegQuality)
+                        server.pushJpegFrame(jpegBytes)
+                    } else {
+                        delay(10) // Rest briefly if no new frame is pending
+                    }
+                }
+            } catch (e: Exception) {
+                if (isActive) {
+                    _state.value = VoiceStreamState.FAILED
                 }
             }
         }

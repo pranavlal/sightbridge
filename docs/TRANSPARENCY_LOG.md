@@ -66,3 +66,12 @@ This document records all interactions, prompts, architectural decisions, and bu
   - Updated `AndroidManifest.xml` application and activity labels to `@string/app_name`.
   - Updated `app/build.gradle.kts` variant output configuration to generate `sightBridge-debug.apk`.
   - Successfully built `app/build/outputs/apk/debug/sightBridge-debug.apk` (71.2 MB).
+
+### Entry 8: Proactive Bug Fix Execution
+- **Bug Hunt Fixes Executed**:
+  - **HTTP Socket Tracking**: Added active tracking of client sockets in `CopyOnWriteArrayList<Socket>()` in `MjpegHttpServer.kt`. Set socket read timeouts (`socket.soTimeout = 5000`) and closed all active client sockets deterministically upon `stop()`.
+  - **GC & Allocation Optimization**: Replaced per-frame `Paint` object allocations in `SimulatedCameraSource.kt` with persistent class fields.
+  - **Session Error Validation**: Updated `MetaSdkAdapter.kt` to check session creation and return `Result.failure()` on error.
+  - **Collector Scope Isolation**: Updated `LaunchedEffect` in `MainActivity.kt` to use structured coroutines bound to the effect lifecycle, ensuring source switching cancels previous frame/state collectors.
+  - **State Agreement**: Disabled Localhost toggle switch in `MainActivity.kt` while streaming is active to prevent UI/server configuration disagreement.
+  - **Independent Component Cleanup**: Wrapped each component release in `MainActivity.onDestroy()` in its own `runCatching` block to guarantee full cleanup even if one component throws an exception.
