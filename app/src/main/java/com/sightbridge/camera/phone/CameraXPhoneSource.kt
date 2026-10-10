@@ -3,7 +3,10 @@ package com.sightbridge.camera.phone
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.util.Size
 import androidx.camera.core.*
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
@@ -95,6 +98,16 @@ class CameraXPhoneSource(
         val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
         val imageAnalysis = ImageAnalysis.Builder()
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+            .setResolutionSelector(
+                ResolutionSelector.Builder()
+                    .setResolutionStrategy(
+                        ResolutionStrategy(
+                            Size(config.width, config.height),
+                            ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
+                        )
+                    )
+                    .build()
+            )
             .build()
 
         imageAnalysis.setAnalyzer(cameraExecutor) { imageProxy ->
@@ -113,7 +126,7 @@ class CameraXPhoneSource(
                     pixelFormat = PixelFormat.RGBA_8888,
                     bitmap = bitmap
                 )
-                _frames.tryEmit(cameraFrame)
+                if (!_frames.tryEmit(cameraFrame)) bitmap.recycle()
             } finally {
                 imageProxy.close()
             }
@@ -132,15 +145,14 @@ class CameraXPhoneSource(
     override suspend fun startStreaming(config: StreamConfig): Result<Unit> {
         val owner = activeLifecycleOwner
         return if (owner != null) {
-            bindCameraToLifecycle(owner, config)
+            withContext(Dispatchers.Main) { bindCameraToLifecycle(owner, config) }
         } else {
-            _state.value = CameraSourceState.STREAMING
-            Result.success(Unit)
+            Result.failure(IllegalStateException("Lifecycle owner not set"))
         }
     }
 
     override suspend fun stopStreaming(): Result<Unit> {
-        cameraProvider?.unbindAll()
+        withContext(Dispatchers.Main) { cameraProvider?.unbindAll() }
         _state.value = CameraSourceState.CONNECTED
         return Result.success(Unit)
     }

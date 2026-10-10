@@ -7,7 +7,15 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.os.Build
 import androidx.core.content.ContextCompat
+import com.meta.wearable.dat.camera.Stream
+import com.meta.wearable.dat.camera.addStream
+import com.meta.wearable.dat.camera.types.StreamConfiguration
+import com.meta.wearable.dat.camera.types.VideoQuality
 import com.meta.wearable.dat.core.Wearables
+import com.meta.wearable.dat.core.selectors.AutoDeviceSelector
+import com.meta.wearable.dat.core.session.DeviceSession
+import com.meta.wearable.dat.core.types.Permission
+import com.meta.wearable.dat.core.types.PermissionStatus
 import com.sightbridge.camera.api.CameraSource
 import com.sightbridge.camera.api.PermissionResult
 import com.sightbridge.camera.api.StreamConfig
@@ -44,6 +52,8 @@ class MetaSdkAdapter(
 
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var streamJob: Job? = null
+    private var session: DeviceSession? = null
+    private var datStream: Stream? = null
     private val frameIdCounter = AtomicLong(0)
 
     override suspend fun initialise(): Result<Unit> {
@@ -58,18 +68,25 @@ class MetaSdkAdapter(
     }
 
     override suspend fun requestPermissions(): PermissionResult {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val granted = ContextCompat.checkSelfPermission(
+        val bluetoothGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            ContextCompat.checkSelfPermission(
                 context,
                 Manifest.permission.BLUETOOTH_CONNECT
             ) == PackageManager.PERMISSION_GRANTED
-            PermissionResult(
-                granted = granted,
-                deniedPermissions = if (granted) emptyList() else listOf(Manifest.permission.BLUETOOTH_CONNECT)
-            )
         } else {
-            PermissionResult(granted = true)
+            true
         }
+        if (!bluetoothGranted) {
+            return PermissionResult(false, listOf(Manifest.permission.BLUETOOTH_CONNECT))
+        }
+        val cameraGranted = Wearables.checkPermissionStatus(Permission.CAMERA).fold(
+            onSuccess = { it is PermissionStatus.Granted },
+            onFailure = { _, _ -> false }
+        )
+        return PermissionResult(
+            granted = cameraGranted,
+            deniedPermissions = if (cameraGranted) emptyList() else listOf("Meta camera access")
+        )
     }
 
     fun startRegistration(activity: Activity) {
@@ -84,7 +101,7 @@ class MetaSdkAdapter(
         val perm = requestPermissions()
         if (!perm.granted) {
             _state.value = CameraSourceState.PERMISSION_REQUIRED
-            return Result.failure(SecurityException("BLUETOOTH_CONNECT permission not granted"))
+            return Result.failure(SecurityException("Required Android Bluetooth or Meta camera permission not granted; register the app and allow camera access in Meta AI"))
         }
         _state.value = CameraSourceState.CONNECTING
         _state.value = CameraSourceState.CONNECTED
@@ -92,24 +109,71 @@ class MetaSdkAdapter(
     }
 
     override suspend fun startStreaming(config: StreamConfig): Result<Unit> {
+        if (_state.value == CameraSourceState.STREAMING) return Result.success(Unit)
         _state.value = CameraSourceState.STARTING_STREAM
 
         return try {
-            // Reflected DAT SDK invocation to maintain stability across DAT SDK preview builds
-            val selectorClass = Class.forName("com.meta.wearable.dat.core.selectors.AutoDeviceSelector")
-            val selector = selectorClass.getDeclaredConstructor().newInstance()
+            stopDatResources()
+            val createdSession = Wearables.createSession(AutoDeviceSelector()).fold(
+                onSuccess = { it },
+                onFailure = { error, cause -> throw IllegalStateException(error.description, cause) }
+            )
+            createdSession.start()
 
-            val createSessionMethod = Wearables::class.java.getMethod("createSession", selectorClass)
-            val sessionResult = createSessionMethod.invoke(null, selector)
-
-            if (sessionResult != null) {
-                _state.value = CameraSourceState.STREAMING
-                Result.success(Unit)
-            } else {
-                _state.value = CameraSourceState.FAILED
-                Result.failure(Exception("DAT session creation failed"))
+            val quality = when {
+                config.width >= 1280 || config.height >= 720 -> VideoQuality.HIGH
+                config.width <= 640 || config.height <= 360 -> VideoQuality.LOW
+                else -> VideoQuality.MEDIUM
             }
+            val fps = listOf(2, 7, 15, 24, 30).minBy { kotlin.math.abs(it - config.targetFps) }
+            val createdStream = createdSession.addStream(
+                StreamConfiguration(videoQuality = quality, frameRate = fps, compressVideo = false)
+            ).fold(
+                onSuccess = { it },
+                onFailure = { error, cause ->
+                    createdSession.stop()
+                    throw IllegalStateException(error.description, cause)
+                }
+            )
+
+            createdStream.start().fold(
+                onSuccess = { Unit },
+                onFailure = { error, cause ->
+                    createdStream.close()
+                    createdSession.stop()
+                    throw IllegalStateException(error.description, cause)
+                }
+            )
+            session = createdSession
+            datStream = createdStream
+            streamJob = scope.launch {
+                createdStream.videoStream.collect { frame ->
+                    if (frame.isCompressed || frame.width <= 0 || frame.height <= 0) return@collect
+                    val expectedBytes = frame.width.toLong() * frame.height * 4
+                    val buffer = frame.buffer.duplicate().apply { rewind() }
+                    if (buffer.remaining().toLong() < expectedBytes) return@collect
+                    val bitmap = Bitmap.createBitmap(frame.width, frame.height, Bitmap.Config.ARGB_8888)
+                    bitmap.copyPixelsFromBuffer(buffer)
+                    val now = System.nanoTime()
+                    _frames.emit(
+                        CameraFrame(
+                            frameId = frameIdCounter.incrementAndGet(),
+                            source = CameraSourceType.META_GLASSES,
+                            acquisitionTimestampNanos = now,
+                            receivedTimestampNanos = now,
+                            width = frame.width,
+                            height = frame.height,
+                            rotationDegrees = 90,
+                            pixelFormat = PixelFormat.RGBA_8888,
+                            bitmap = bitmap
+                        )
+                    )
+                }
+            }
+            _state.value = CameraSourceState.STREAMING
+            Result.success(Unit)
         } catch (e: Exception) {
+            stopDatResources()
             _state.value = CameraSourceState.FAILED
             Result.failure(e)
         }
@@ -133,10 +197,19 @@ class MetaSdkAdapter(
     }
 
     override suspend fun stopStreaming(): Result<Unit> {
-        streamJob?.cancel()
-        streamJob = null
+        stopDatResources()
         _state.value = CameraSourceState.CONNECTED
         return Result.success(Unit)
+    }
+
+    private fun stopDatResources() {
+        streamJob?.cancel()
+        streamJob = null
+        runCatching { datStream?.stop() }
+        runCatching { datStream?.close() }
+        datStream = null
+        runCatching { session?.stop() }
+        session = null
     }
 
     override suspend fun disconnect(): Result<Unit> {

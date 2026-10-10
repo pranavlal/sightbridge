@@ -17,6 +17,7 @@ data class VoiceStreamConfig(
     val port: Int = 8080,
     val endpointPath: String = "/live.mjpeg",
     val bindLocalhostOnly: Boolean = true,
+    val accessToken: String? = null,
     val targetWidth: Int = 896,
     val targetHeight: Int = 504,
     val jpegQuality: Int = 80,

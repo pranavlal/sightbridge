@@ -29,7 +29,8 @@ class EndToEndPipelineTest {
         val testPort = 8990
         val healthWatchdog = HealthWatchdog(frameTimeoutMs = 5000)
         val cameraSource = SimulatedCameraSource(targetWidth = 320, targetHeight = 240)
-        val voiceAdapter = HttpMjpegVoiceStreamAdapter(healthWatchdog)
+        val validTestJpeg = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 1, 2, 3, 0xFF.toByte(), 0xD9.toByte())
+        val voiceAdapter = HttpMjpegVoiceStreamAdapter(healthWatchdog) { _, _ -> validTestJpeg }
 
         // 1. Initialise & Connect Camera Source
         val initCamResult = cameraSource.initialise()

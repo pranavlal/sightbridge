@@ -17,7 +17,8 @@ import kotlinx.coroutines.flow.asStateFlow
  * Decouples image compression & socket transmission onto a background consumer coroutine with active heartbeat recording.
  */
 class HttpMjpegVoiceStreamAdapter(
-    private val healthWatchdog: HealthWatchdog? = null
+    private val healthWatchdog: HealthWatchdog? = null,
+    private val jpegEncoder: (CameraFrame, Int) -> ByteArray = FrameProcessor::compressFrameToJpeg
 ) : VoiceStreamAdapter {
 
     private val _state = MutableStateFlow(VoiceStreamState.STOPPED)
@@ -33,9 +34,19 @@ class HttpMjpegVoiceStreamAdapter(
         get() = frameBuffer.droppedFramesCount
 
     override suspend fun initialise(config: VoiceStreamConfig): Result<Unit> {
+        if (config.port !in 1..65535 || config.jpegQuality !in 1..100) {
+            return Result.failure(IllegalArgumentException("Invalid MJPEG port or JPEG quality"))
+        }
+        if (!config.bindLocalhostOnly && config.accessToken.isNullOrBlank()) {
+            return Result.failure(IllegalArgumentException("LAN streaming requires an access token"))
+        }
         stop() // Safely stop and release any existing server instance before reinitialization
         activeConfig = config
-        mjpegServer = MjpegHttpServer(port = config.port, bindToLocalhostOnly = config.bindLocalhostOnly)
+        mjpegServer = MjpegHttpServer(
+            port = config.port,
+            bindToLocalhostOnly = config.bindLocalhostOnly,
+            accessToken = config.accessToken
+        )
         return Result.success(Unit)
     }
 
@@ -59,9 +70,13 @@ class HttpMjpegVoiceStreamAdapter(
                 while (isActive && _state.value == VoiceStreamState.STREAMING) {
                     val frame = frameBuffer.poll()
                     if (frame != null) {
-                        val jpegBytes = FrameProcessor.compressBitmapToJpeg(frame.bitmap, activeConfig.jpegQuality)
-                        server.pushJpegFrame(jpegBytes)
-                        healthWatchdog?.recordHeartbeat("VoiceStreamAdapter", "Frame ${frame.frameId}")
+                        try {
+                            val jpegBytes = jpegEncoder(frame, activeConfig.jpegQuality)
+                            server.pushJpegFrame(jpegBytes)
+                            healthWatchdog?.recordHeartbeat("VoiceStreamAdapter", "Frame ${frame.frameId}")
+                        } finally {
+                            frame.bitmap.recycle()
+                        }
                     } else {
                         delay(10) // Rest briefly if no new frame is pending
                     }

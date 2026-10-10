@@ -15,7 +15,12 @@ data class StreamConfig(
     val width: Int = 896,
     val height: Int = 504,
     val targetFps: Int = 24
-)
+) {
+    init {
+        require(width > 0 && height > 0) { "Stream dimensions must be positive" }
+        require(targetFps in 1..60) { "Target FPS must be between 1 and 60" }
+    }
+}
 
 /**
  * Camera-independent camera source contract per Section 7 of specification.

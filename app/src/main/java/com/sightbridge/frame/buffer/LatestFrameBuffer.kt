@@ -45,6 +45,7 @@ class LatestFrameBuffer(
             val previous = _latestFrame.value
             if (previous != null) {
                 _droppedFramesCount.incrementAndGet()
+                previous.bitmap.recycle()
             }
             _latestFrame.value = frame
         }
@@ -72,6 +73,7 @@ class LatestFrameBuffer(
             } else {
                 // Discard stale or negative age frame
                 _droppedFramesCount.incrementAndGet()
+                frame.bitmap.recycle()
                 null
             }
         }
@@ -81,6 +83,7 @@ class LatestFrameBuffer(
         lock.withLock {
             if (_latestFrame.value != null) {
                 _droppedFramesCount.incrementAndGet()
+                _latestFrame.value?.bitmap?.recycle()
                 _latestFrame.value = null
             }
         }

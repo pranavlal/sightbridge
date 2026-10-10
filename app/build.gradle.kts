@@ -12,8 +12,8 @@ android {
         applicationId = "com.sightbridge"
         minSdk = 29
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -27,7 +27,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -44,6 +45,7 @@ android {
     buildFeatures {
         compose = true
     }
+    androidResources { noCompress += "tflite" }
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -59,6 +61,8 @@ android {
 }
 
 dependencies {
+    implementation("com.google.mediapipe:tasks-vision:0.10.35")
+    implementation("com.herohan:UVCAndroid:1.0.13")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -81,6 +85,11 @@ dependencies {
     implementation(libs.mwdat.camera)
     implementation(libs.mwdat.display)
     implementation(libs.mwdat.mockdevice)
+
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
 
     // Testing
     testImplementation(libs.junit)
