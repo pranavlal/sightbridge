@@ -198,8 +198,11 @@ on a 16 KB Android runtime remains unverified. This is an explicit release gate.
 The release manifest confirms minimum/target/compile API 36, version code 3,
 no debug flag, backups disabled, outgoing cleartext disabled, and absence of the
 five removed SDK permissions. Release dependency inspection found no mock-device
-SDK. Debug signing verifies. The release APK is deliberately unsigned: production
-signing and a signed-release device run are pending.
+SDK. Debug signing verifies. The production release APK is deliberately unsigned:
+production signing and a signed-release device run are pending. A separate
+release-style `com.sightbridge.testing` APK can now be signed with the persistent
+testing key; see [signed testing](SIGNED_TESTING.md). Its testing identity is not
+production signing approval or a completed signed-build hardware assessment.
 
 The final debug APK is installed on the OnePlus. The combined device suite passed
 (ten active checks, including merged permissions, plus one skipped deployment-only

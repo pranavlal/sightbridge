@@ -2,6 +2,8 @@
 
 ## 1.2.0 — 2026-10-11 (testing; production release pending)
 
+- Add a release-style signed SightBridge Testing build with a separate app ID, persistent private testing key, signing helper, signature/alignment verification and secure key-custody instructions.
+
 - Record the owner's acceptance of unauthenticated same-phone streaming for apps such as The vOICe; remove local-app authentication from release blockers while retaining localhost-only dashboard streaming.
 
 - Require Android 16 (API 36), matching the connected OnePlus; compile and target API 36.

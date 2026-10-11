@@ -71,6 +71,13 @@ For a smaller OnePlus build, add `-PsightbridgeAbi=arm64-v8a`.
 It requires Android 16 or later and is signed with a debug key; use a separately
 managed signing key for production. APKs are build outputs and are not committed.
 
+For a signed release-style testing APK, run
+`python3 scripts/build_signed_testing.py`. Its verified output is
+`app/build/outputs/apk/qa/sightbridge.apk`, using a separate **SightBridge
+Testing** identity and a persistent private key outside the repository.
+See [signed testing instructions](docs/SIGNED_TESTING.md) for installation,
+secure key backup and future updates.
+
 ### Run Verification
 ```bash
 JAVA_HOME=/usr/lib/jvm/java-17-openjdk ./gradlew testDebugUnitTest lintDebug assembleDebug assembleRelease

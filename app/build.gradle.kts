@@ -14,6 +14,7 @@ android {
         targetSdk = 36
         versionCode = 3
         versionName = "1.2.0"
+        manifestPlaceholders["appLabel"] = "@string/app_name"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -40,6 +41,13 @@ android {
                 "proguard-rules.pro"
             )
         }
+        create("qa") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".testing"
+            versionNameSuffix = "-testing"
+            manifestPlaceholders["appLabel"] = "SightBridge Testing"
+            matchingFallbacks += listOf("release")
+        }
     }
     testBuildType = providers.gradleProperty("sightbridgeTestBuildType").orElse("debug").get()
     compileOptions {
@@ -59,8 +67,11 @@ android {
     applicationVariants.all {
         outputs.all {
             val outputImpl = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-            outputImpl.outputFileName = if (buildType.name == "debug") "sightbridge.apk"
-                else "sightBridge-${buildType.name}.apk"
+            outputImpl.outputFileName = when (buildType.name) {
+                "debug" -> "sightbridge.apk"
+                "qa" -> "sightbridge-unsigned.apk"
+                else -> "sightBridge-${buildType.name}.apk"
+            }
         }
     }
 }

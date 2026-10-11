@@ -124,3 +124,10 @@ This document records all interactions, prompts, architectural decisions, and bu
 ### Entry 14: Accepted same-phone stream sharing (2026-10-11)
 
 - The owner confirmed that access by other apps on the phone, including The vOICe for Android, is intended. Updated the README and release review to record this acceptance and remove per-app authentication as a release requirement. Localhost binding, shutdown behavior and the separate LAN review remain in scope. This is a documentation change; runtime behavior is unchanged.
+
+### Entry 15: Signed testing artifact (2026-10-11)
+
+- Created a separate release-style qa build with application ID com.sightbridge.testing and label SightBridge Testing, preserving side-by-side installation with the debug app.
+- Generated a persistent RSA-3072 PKCS12 testing key outside the repository, protected by a random password and owner-only directory/file permissions. Keystore and password are excluded from Git; neither secret was printed or uploaded.
+- Added a signing helper that reuses the key, reads passwords from a private file instead of shell arguments, verifies signature and 16 KB alignment, and writes an APK checksum. Documented secure backup and future update continuity in SIGNED_TESTING.md.
+- Verified the signed APK's v3 signature, identity, Android 16/arm64 baseline, non-debuggable flag, sensitive-permission exclusions and all 83 native-library alignments. Release vital lint passed. Full signed-build device validation remains pending; signing does not remove Android sideloading warnings or complete production approval.

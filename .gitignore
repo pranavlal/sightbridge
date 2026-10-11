@@ -1,5 +1,11 @@
 # Secrets and local configuration
 local.properties
+*.jks
+*.keystore
+*.p12
+keystore-password
+signing.properties
+signing/
 
 # Gradle files
 .gradle/
