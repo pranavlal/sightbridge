@@ -1,15 +1,23 @@
-# SightBridge - Meta Wearables Device Access Toolkit (DAT) Integration
+# SightBridge — offline camera streaming and object cues
 
-**Current app version: 1.1.0 (Android version code 2).**
+**Current testing version: 1.2.0 (Android version code 3). Minimum Android: 16 (API 36).**
 
-This project integrates the **Meta Wearables Device Access Toolkit (DAT) SDK** (MWDAT) on Arch Linux.
+SightBridge shares a USB webcam or phone-camera feed with The vOICe for Android
+and optionally runs offline object recognition and position cues. A camera
+foreground service keeps user-started processing alive when the dashboard closes.
+The Meta Wearables DAT integration is experimental and currently uses developer
+credentials. See [changes](CHANGELOG.md), [AI processing](docs/AI_PROCESSING.md),
+and [release readiness](docs/RELEASE_READINESS.md).
+
+This is a testing build. Production security review and a complete WCAG 2.2 AA
+assessment using W3C WCAG2ICT guidance remain release gates.
 
 ## Prerequisites & Environment
 
 - **OS**: Arch Linux
-- **Android SDK Path**: `/opt/android-sdk`
+- **Android SDK**: platform 36 and build tools 35.0.0; configure sdk.dir in local.properties
 - **JDK**: OpenJDK 17 (`/usr/lib/jvm/java-17-openjdk`)
-- **Gradle**: 9.6.1
+- **Gradle**: 8.13 via the checked-in wrapper; Android Gradle Plugin 8.13.2
 
 ---
 
@@ -58,6 +66,11 @@ JAVA_HOME=/usr/lib/jvm/java-17-openjdk gradle wrapper
 JAVA_HOME=/usr/lib/jvm/java-17-openjdk ./gradlew assembleDebug
 ```
 
+The tester APK is `app/build/outputs/apk/debug/sightbridge.apk`.
+For a smaller OnePlus build, add `-PsightbridgeAbi=arm64-v8a`.
+It requires Android 16 or later and is signed with a debug key; use a separately
+managed signing key for production. APKs are build outputs and are not committed.
+
 ### Run Verification
 ```bash
 JAVA_HOME=/usr/lib/jvm/java-17-openjdk ./gradlew testDebugUnitTest lintDebug assembleDebug assembleRelease
@@ -79,7 +92,8 @@ If you don't have physical Ray-Ban Meta glasses connected:
 ## Privacy and Network Safety
 
 - MJPEG binds to `127.0.0.1` by default so only apps on the phone can receive camera frames.
-- Publishing on `0.0.0.0` exposes an unencrypted camera feed to the current local network. The app generates a session token and includes it in the displayed LAN URL, but the transport is still plain HTTP: use it only on a trusted network and stop the pipeline immediately after testing.
+- The dashboard always starts localhost-only streaming; it provides no LAN-sharing control. The adapter still supports token-protected LAN HTTP for internal tests, which must be removed or hardened before a public release.
+- Localhost restricts network access, but does not authenticate other apps on the same phone. A malicious local app can potentially read the feed while the server runs. See the release review for the required authentication/interoperability decision.
 - The only supported HTTP path is `/live.mjpeg`; malformed and oversized requests are rejected and concurrent clients are capped.
 
 ## Launcher Icon
@@ -90,11 +104,13 @@ USB webcam support and accessibility verification are documented in [USB camera 
 
 ## Offline AI and independent streaming
 
-- **Copy Streaming URL** copies the same-handset URL for pasting into The vOICe for Android. It includes the required session token when LAN sharing is enabled.
+- **Copy Streaming URL** appears after the server starts and copies the same-handset URL for The vOICe for Android.
 - **Media Server Start / Media Server Stop** control MJPEG output.
 - **Start AI Processing / Stop AI Processing** control on-device object detection and speech independently of the server.
 
 Both features share the selected camera. Stopping one leaves the other running;
 stopping both releases the camera. AI results list recognized objects and their
-left/center/right positions. They do not establish distance or a safe route.
+left/center/right and upper/lower positions. Independent detections can announce
+an unrecognized object or unidentified visual region when names are unreliable.
+These cues do not establish distance or a safe route, and not every object is detected.
 See [AI processing](docs/AI_PROCESSING.md) for the model and validation details.

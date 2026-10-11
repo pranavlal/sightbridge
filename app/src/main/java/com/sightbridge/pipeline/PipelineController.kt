@@ -20,7 +20,8 @@ class PipelineController(
     initialSource: CameraSource,
     private val media: HttpMjpegVoiceStreamAdapter,
     val ai: OnDeviceAiProcessor,
-    private val health: HealthWatchdog
+    private val health: HealthWatchdog,
+    private val beforeStart: suspend () -> Unit = {}
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val mutex = Mutex()
@@ -38,7 +39,7 @@ class PipelineController(
                     stopAi()
                     mutableStatus.value = mutableStatus.value.copy(message = state.error)
                 }
-                if (state.running && state.processedFrames > 0) health.recordHeartbeat("AI", "Frame ${state.processedFrames}")
+                if (state.running && state.sceneChecks > 0) health.recordHeartbeat("AI", "Scene check ${state.sceneChecks}; analyzed ${state.processedFrames}")
             }
         }
         scope.launch {
@@ -98,6 +99,7 @@ class PipelineController(
 
     suspend fun startMedia(config: VoiceStreamConfig) = command {
         if (mutableStatus.value.mediaRunning) return@command
+        beforeStart()
         media.initialise(config).getOrThrow()
         media.start().getOrThrow()
         try {
@@ -108,6 +110,7 @@ class PipelineController(
 
     suspend fun startAi() = command {
         if (mutableStatus.value.aiRunning) return@command
+        beforeStart()
         ai.start().getOrThrow()
         try {
             ensureCamera()

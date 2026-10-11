@@ -108,3 +108,15 @@ This document records all interactions, prompts, architectural decisions, and bu
   - Restricted `sightbridge:` deep link intent filter data host to `android:host="auth"` in `AndroidManifest.xml`.
   - Pinned Gradle distribution SHA256 checksum (`distributionSha256Sum`) in `gradle-wrapper.properties`.
   - Verified no hardcoded tokens or API secrets exist in source code or Git history.
+
+### Entry 13: Offline recognition, foreground processing and release review (2026-10-11)
+
+- Added a camera foreground service with independent media/AI consumers, a Stop all notification, and a renewable bounded wake lock. Activity recreation/background operation retain processing; idle processing releases resources.
+- Simplified the dashboard to camera radios and processing controls; URL/copy appear only while the server runs. AI speech uses TalkBack when active and app TTS otherwise. App-generated duplicate clipboard speech is removed on the supported platform.
+- Bundled EfficientDet-Lite2 and U2Netp, added independent ML Kit object locations, and required spatial/temporal confirmation of labels and unnamed cues. Kept visual regions distinct from identified objects and added scene gating/periodic refresh.
+- Verified model execution in a separate no-INTERNET APK using a private local camera reference. Images were not uploaded or committed. Documented model sources, hashes, license and recognition limitations.
+- Matched the minimum Android version to the connected OnePlus: API 36 (Android 16). Updated the supported AGP/Gradle combination and CameraX; moved UI state collection to lifecycle-aware Compose APIs and excluded Meta mock-device SDKs from release dependencies.
+- Found and removed SDK-contributed microphone, all-files/shared-storage and legacy Bluetooth permissions. Checked the merged release manifest and added installed-package regression checks. Outgoing cleartext is disabled; this does not authenticate the raw localhost camera feed.
+- Confirmed debug and shrunk release builds, 46 JVM tests, lint with zero errors, ten active combined device checks, and five dashboard checks at 200% text scaling. Restored the original 135% setting.
+- Added a static 16 KB native-library checker. CameraX 1.3.2 failed; CameraX 1.6.2 passed across 83 arm64 libraries and independent ZIP alignment checks. The handset uses 4 KB pages, so 16 KB runtime execution remains a release gate.
+- Documented production signing, SDK/component review, feed authentication, dependency/license review, long-duration reliability and WCAG 2.2 AA manual assessment in RELEASE_READINESS.md. No production or accessibility conformance certification is claimed. The current bounded token/private-key scan does not establish a complete secret-history audit.

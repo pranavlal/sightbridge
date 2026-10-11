@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.2.0 — 2026-10-11 (testing; production release pending)
+
+- Require Android 16 (API 36), matching the connected OnePlus; compile and target API 36.
+- Update to Android Gradle Plugin 8.13.2, its supported Gradle 8.13 toolchain, and Kotlin compilerOptions; remove the standalone R8 override.
+- Keep camera capture in a camera foreground service with a visible notification and Stop all action; release the camera and wake lock when processing stops.
+- Retain independent media and AI controls across dashboard recreation and background operation.
+- Simplify the initial screen to camera choices and processing controls; show the streaming URL and copy button only while the server runs.
+- Route AI announcements through TalkBack when a spoken accessibility service runs; use offline app TTS otherwise.
+- Avoid a duplicate app-generated clipboard announcement on Android 13 and later. Android/OEM clipboard announcements remain system-controlled.
+- Upgrade recognition to bundled EfficientDet-Lite2 and confirm names across frames, with stricter toilet thresholds.
+- Add independent ML Kit object locations and bundled U2Netp visual-region cues for scenes without reliable names; include the U2Net license.
+- Skip unchanged scenes while retaining periodic refresh and bounded confirmation checks.
+- Add a separate no-INTERNET verification build and actual-model/device regression checks. Camera reference images are not committed or uploaded.
+- Use lifecycle-aware Compose state collection and exclude the Meta mock-device SDK from release dependencies.
+- Update CameraX to 1.6.2 to remove the old 4 KB-aligned native image library; add a renewable two-minute wake-lock timeout.
+- Remove SDK-contributed microphone, all-files/shared-storage and legacy Bluetooth permissions from the merged app manifest; forbid outgoing cleartext traffic and add installed-package permission checks.
+- Name debug APKs sightbridge.apk; increment the Android version code to 3.
+- Document production release gates and the WCAG 2.2 AA evaluation plan; add a repeatable native-library alignment check.
+
+The preceding AI/service implementation passed 46 JVM tests, Android lint, the
+combined device suite and a no-network model check. The Android 16 baseline and
+build-toolchain changes are subject to the validation record in
+[release readiness](docs/RELEASE_READINESS.md). No WCAG conformance or security
+certification is claimed.
+
 ## 1.1.0 — 2026-10-10
 
 - Add direct UVC webcam capture, camera discovery, USB permissions, supported-mode selection, and disconnect handling.

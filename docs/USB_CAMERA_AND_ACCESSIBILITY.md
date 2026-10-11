@@ -23,13 +23,12 @@ guidance. This is an implementation and validation record, not a certification.
 
 - Camera sources use a vertical radio group with selected-state semantics and a
   single focus target per option; targets have a minimum height of 48dp.
-- Buttons and the switch have minimum 48dp targets, visible names, and native
-  action/state semantics. The stream privacy switch has an explicit spoken label.
-- Section titles expose heading semantics. Status and USB detection expose polite
-  live regions. Health states are conveyed in text as well as color.
+- Processing and clipboard buttons have minimum 48dp targets, visible names, and native
+  action/state semantics. The simplified dashboard has no stream privacy switch.
+- Section titles expose heading semantics. Operational feedback and AI errors expose polite
+  live regions. AI speech uses TalkBack when active, and app TTS otherwise.
 - Content scrolls vertically, text uses scalable Material typography, source
-  choices and registration controls wrap vertically, and health rows have no
-  fixed-height nested scrolling area. The app bar has a short title.
+  choices and registration controls wrap vertically. The app bar has a short title.
 - Secondary explanatory text uses onSurfaceVariant instead of outline. Material
   surface/container colors are paired with their corresponding text colors.
 - All actions are available through standard clicks; no drag-only actions or
@@ -59,7 +58,7 @@ The hardware test accepts normal Android camera/USB dialogs and verifies a JPEG
 start marker in the localhost MJPEG stream. It is skipped unless explicitly enabled.
 USB enumeration unit tests cover composite cameras, noncamera devices, and a
 streaming interface without video control. Dashboard tests check headings,
-selection semantics, switch labeling/state, and scroll access to the controls.
+selection semantics, conditional URL visibility, and scroll access to the controls.
 
 Manual checks still required before claiming full conformance: TalkBack spoken
 order and announcements; Switch Access and hardware keyboard use; magnification;
@@ -83,9 +82,10 @@ that merely inspect constants do not establish accessibility conformance.
 
 ## Device testing and pipeline scope
 
-Debug builds keep the display awake while SightBridge is in the foreground using
-FLAG_KEEP_SCREEN_ON; system lock credentials and normal screen timeout settings
-are unchanged. ADB's `cmd power wakeup` can wake the handset before testing.
+User-started processing holds a partial wake lock in a camera foreground service;
+the display can turn off normally. Stopping both consumers releases that lock.
+System lock credentials and screen timeout settings are unchanged.
+ADB's `cmd power wakeup` can wake the handset before testing.
 Required camera and USB dialogs are handled by the opt-in device test. Microphone,
 storage, and Bluetooth permissions are not required for the UVC-only stream.
 
@@ -95,3 +95,8 @@ detection and speaks recognized objects and their horizontal positions. AI and
 media can run independently or together; stopping both releases the camera.
 Scene narration, depth measurement, and safe-route determination are not implemented.
 End-to-end behavior of an external consuming app remains a separate validation.
+
+The current minimum platform is Android 16 (API 36). Historical test results
+above are evidence for their stated builds, not a blanket conformance claim for
+the latest build. See [release readiness](RELEASE_READINESS.md) for the current
+validation record and criterion-based accessibility review still required.

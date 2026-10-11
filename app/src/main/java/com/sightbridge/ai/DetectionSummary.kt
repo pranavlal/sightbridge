@@ -1,18 +1,22 @@
 package com.sightbridge.ai
 
-data class DetectedObject(val label: String, val confidence: Float, val centerX: Float)
-
 object DetectionSummary {
-    fun describe(objects: List<DetectedObject>): String {
-        val descriptions = objects.filter { it.confidence >= 0.5f && it.centerX.isFinite() }
-            .sortedByDescending { it.confidence }.take(3).map {
-                val position = when {
-                    it.centerX < 1f / 3 -> "on the left"
-                    it.centerX > 2f / 3 -> "on the right"
-                    else -> "in the center"
-                }
-                "${it.label} $position"
-            }.distinct()
-        return if (descriptions.isEmpty()) "No recognized objects in this frame" else descriptions.joinToString("; ")
+    fun describe(objects: List<LocatedObject>): String {
+        val descriptions = objects.filter { it.box.valid }.map {
+            val horizontal = when {
+                it.box.centerX < 1f / 3 -> "left"
+                it.box.centerX > 2f / 3 -> "right"
+                else -> "center"
+            }
+            val position = when {
+                it.box.centerY < 1f / 3 -> "in the upper $horizontal"
+                it.box.centerY > 2f / 3 -> "in the lower $horizontal"
+                horizontal == "center" -> "in the center"
+                else -> "on the $horizontal"
+            }
+            val label = it.label ?: if (it.visualRegion) "Unidentified region" else "Unrecognized object"
+            "$label $position"
+        }.distinct().take(3)
+        return if (descriptions.isEmpty()) "No reliable detections in this frame" else descriptions.joinToString("; ")
     }
 }
