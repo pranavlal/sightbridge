@@ -22,3 +22,9 @@ app/build/
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# Local training data, environments, and checkpoints
+data/ground_hazards/
+training/ground_hazards/.venv/
+training/ground_hazards/runs/
+training/ground_hazards/__pycache__/

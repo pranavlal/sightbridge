@@ -1,0 +1,44 @@
+{
+  "classes": {
+    "1": "pothole",
+    "2": "stairs",
+    "3": "curb",
+    "4": "single_step",
+    "5": "open_gutter"
+  },
+  "arms": [
+    "others",
+    "barriers",
+    "combined"
+  ],
+  "seeds": [
+    17,
+    29,
+    43
+  ],
+  "model": "COCO-pretrained SSDLite320 MobileNetV3; frozen backbone; trained classification/regression heads",
+  "training_updates": 1000,
+  "batch_size": 12,
+  "checkpoint_every": 200,
+  "combined_sampling": "40% accessibility; 60% other sources, balanced by source",
+  "primary_comparison": "combined minus others on pothole, stairs, curb; gutter reported descriptively only",
+  "meaningful_gain_rule": "At least 5 percentage points in macro detection F1, paired 95% CI excludes zero",
+  "transfer_rule": "Also inspect non-barrier holdout gains/regressions; no deployment claim from in-domain gains",
+  "iou": [
+    0.5,
+    0.75
+  ],
+  "score_threshold": "per-class selected on validation F1 only; frozen before test",
+  "uncertainty": "paired bootstrap of training seeds and image/near-duplicate groups, stratified by source",
+  "annotation_policy": "Only score/supervise classes annotated by each source; no boxes fabricated from scene classes",
+  "limitations": [
+    "Annotation task batches are proxies, not verified locations, for Accessibility Barriers",
+    "Exact hashes plus conservative perceptual matching do not prove all near duplicates removed",
+    "Frames/stereo views grouped; stair train/val scene prefixes held together",
+    "Generic stairs/curbs do not establish drop direction or safe walking",
+    "Frozen backbone and bounded RDD sample; this is a controlled screening experiment",
+    "Earlier Brazilian exploratory test was used previously; not a pristine deployment acceptance set",
+    "No time-to-edge, real walking false-alarm rate, or device validation in this study",
+    "Only two unique gutter test images after deduplication; insufficient for a reliable gain estimate"
+  ]
+}

@@ -15,7 +15,7 @@ enum class VoiceStreamState {
 data class VoiceStreamConfig(
     val host: String = "127.0.0.1",
     val port: Int = 8080,
-    val endpointPath: String = "/live.mjpeg",
+    val endpointPath: String = "/mjpeg",
     val bindLocalhostOnly: Boolean = true,
     val accessToken: String? = null,
     val targetWidth: Int = 896,

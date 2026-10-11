@@ -100,3 +100,20 @@ The current minimum platform is Android 16 (API 36). Historical test results
 above are evidence for their stated builds, not a blanket conformance claim for
 the latest build. See [release readiness](RELEASE_READINESS.md) for the current
 validation record and criterion-based accessibility review still required.
+
+
+## Returning Home with TalkBack
+
+A two-finger swipe up inside SightBridge scrolls the dashboard. Android's Home
+behavior depends on the phone's navigation mode:
+
+- With three-button navigation, find the Home button and double-tap, or use
+  TalkBack's default one-finger up-then-left gesture in one continuous motion.
+- With gesture navigation, swipe up with two fingers from the very bottom edge
+  to return Home. A swipe beginning inside the content still scrolls.
+
+See [Google's TalkBack gesture instructions](https://support.google.com/accessibility/android/answer/6151827?hl=en).
+SightBridge does not intercept these system gestures or exclude gesture regions.
+The connected OnePlus was checked on 2026-10-12: TalkBack was enabled and
+Android's three-button navigation overlay was active. This settings/code check
+explains the reported behavior; it does not substitute for a physical gesture test.

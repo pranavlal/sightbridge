@@ -119,3 +119,17 @@ This startup check does not replace media/AI hardware validation.
   The localhost MJPEG stream returned 65 complete JPEG frames in three seconds.
 - Signature, release vital lint and static alignment of 83 native libraries passed.
   Full long-duration, permission-denial and accessibility assessment remain pending.
+
+## Shorter streaming URL update, 2026-10-12
+
+- Version 1.2.0-testing, Android version code 8, signed with the existing testing certificate.
+- Displayed and copied URL: `http://localhost:8080/mjpeg`.
+- `/live.mjpeg` remains available for existing consumers with the same access checks.
+- Eight server, adapter and end-to-end streaming tests passed. Release vital lint,
+  APK signature and 16 KB alignment checks passed for all 83 native libraries.
+- APK SHA-256: `91c847eef95756f275a680f45d9d0815cd6f469f6dede99ee8dcde59b1ef12f0`.
+- Installation confirmed on the connected OnePlus: version code 8. The updated
+  dashboard launched and remained the resumed activity with a running process.
+  Streaming from the installed update has not yet been checked with a live camera.
+- Rebuilt for the GitHub update: all 47 Android unit tests and eight research
+  tests passed; the signed APK was reverified with the same certificate and checksum.

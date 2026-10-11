@@ -89,7 +89,7 @@ fun SightBridgeDashboard(
     val selectedSourceType by service.sourceType.collectAsStateWithLifecycle()
     val usbDescription by service.usb.deviceDescription.collectAsStateWithLifecycle()
     var permissionMessage by remember { mutableStateOf<String?>(null) }
-    val streamUrl = "http://127.0.0.1:8080/live.mjpeg"
+    val streamUrl = "http://localhost:8080/mjpeg"
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
         val requiredGranted = permissions.filterKeys { it != Manifest.permission.POST_NOTIFICATIONS }.values.all { it }

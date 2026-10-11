@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.channels.Channel
 
 /**
- * High-performance HTTP MJPEG Server for streaming camera frames over HTTP /live.mjpeg.
+ * High-performance HTTP MJPEG Server for streaming camera frames over HTTP /mjpeg.
  * Fully thread-safe using Kotlin Coroutines on Dispatchers.IO.
  * Enforces active client limits (maxClients = 10) atomically to prevent connection exhaustion.
  */
@@ -121,7 +121,7 @@ class MjpegHttpServer(
             val requestLine = request.lineSequence().firstOrNull().orEmpty()
             val requestTarget = requestLine.split(' ').getOrNull(1).orEmpty()
             val path = requestTarget.substringBefore('?')
-            if (!requestLine.startsWith("GET ") || path != ENDPOINT_PATH) {
+            if (!requestLine.startsWith("GET ") || (path != ENDPOINT_PATH && path != LEGACY_ENDPOINT_PATH)) {
                 writeSimpleResponse(socket, "404 Not Found", "MJPEG endpoint is $ENDPOINT_PATH")
                 return
             }
@@ -263,7 +263,8 @@ class MjpegHttpServer(
     fun isServerRunning(): Boolean = isRunning
 
     companion object {
-        const val ENDPOINT_PATH = "/live.mjpeg"
+        const val ENDPOINT_PATH = "/mjpeg"
+        private const val LEGACY_ENDPOINT_PATH = "/live.mjpeg"
         private const val MAX_HEADER_BYTES = 8192
         private const val REQUEST_TIMEOUT_MS = 5000
         /**

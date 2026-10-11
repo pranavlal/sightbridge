@@ -62,12 +62,30 @@ class MjpegHttpServerTest {
     }
 
     @Test
+    fun testLegacyStreamPathStillWorks() {
+        val server = MjpegHttpServer(port = 8894, bindToLocalhostOnly = true)
+        assertTrue(server.start().isSuccess)
+        try {
+            Socket("localhost", 8894).use { client ->
+                client.soTimeout = 2000
+                client.getOutputStream().apply {
+                    write("GET /live.mjpeg HTTP/1.1\r\nHost: localhost\r\n\r\n".toByteArray())
+                    flush()
+                }
+                assertTrue(client.getInputStream().bufferedReader().readLine().contains("200 OK"))
+            }
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
     fun testDisconnectedClientReleasesCapacity() {
         val server = MjpegHttpServer(port = 8896, bindToLocalhostOnly = true, maxClients = 1)
         assertTrue(server.start().isSuccess)
         val first = Socket("127.0.0.1", 8896).apply { soTimeout = 2000 }
         first.getOutputStream().apply {
-            write("GET /live.mjpeg HTTP/1.1\r\nHost: localhost\r\n\r\n".toByteArray())
+            write("GET /mjpeg HTTP/1.1\r\nHost: localhost\r\n\r\n".toByteArray())
             flush()
         }
         assertTrue(first.getInputStream().bufferedReader().readLine().contains("200 OK"))
@@ -78,7 +96,7 @@ class MjpegHttpServerTest {
             Thread.sleep(25)
             val next = Socket("127.0.0.1", 8896).apply { soTimeout = 2000 }
             next.getOutputStream().apply {
-                write("GET /live.mjpeg HTTP/1.1\r\nHost: localhost\r\n\r\n".toByteArray())
+                write("GET /mjpeg HTTP/1.1\r\nHost: localhost\r\n\r\n".toByteArray())
                 flush()
             }
             response = next.getInputStream().bufferedReader().readLine()
@@ -101,7 +119,7 @@ class MjpegHttpServerTest {
 
         val unauthorized = Socket("127.0.0.1", 8895).apply { soTimeout = 2000 }
         unauthorized.getOutputStream().apply {
-            write("GET /live.mjpeg HTTP/1.1\r\nHost: localhost\r\n\r\n".toByteArray())
+            write("GET /mjpeg HTTP/1.1\r\nHost: localhost\r\n\r\n".toByteArray())
             flush()
         }
         assertTrue(unauthorized.getInputStream().bufferedReader().readLine().contains("401 Unauthorized"))
@@ -109,7 +127,7 @@ class MjpegHttpServerTest {
 
         val authorized = Socket("127.0.0.1", 8895).apply { soTimeout = 2000 }
         authorized.getOutputStream().apply {
-            write("GET /live.mjpeg?token=test-token-123456 HTTP/1.1\r\nHost: localhost\r\n\r\n".toByteArray())
+            write("GET /mjpeg?token=test-token-123456 HTTP/1.1\r\nHost: localhost\r\n\r\n".toByteArray())
             flush()
         }
         assertTrue(authorized.getInputStream().bufferedReader().readLine().contains("200 OK"))

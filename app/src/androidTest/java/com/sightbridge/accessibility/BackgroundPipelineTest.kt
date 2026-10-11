@@ -40,7 +40,7 @@ class BackgroundPipelineTest {
     private fun assertJpegStream() {
         Socket("127.0.0.1", 8080).use { socket ->
             socket.soTimeout = 10_000
-            socket.getOutputStream().write("GET /live.mjpeg HTTP/1.1\r\nHost: localhost\r\n\r\n".toByteArray())
+            socket.getOutputStream().write("GET /mjpeg HTTP/1.1\r\nHost: localhost\r\n\r\n".toByteArray())
             val input = socket.getInputStream()
             var previous = -1
             repeat(1_000_000) {

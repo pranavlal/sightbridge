@@ -131,7 +131,7 @@ the image is empty.
 
 ## Clipboard and independent controls
 
-Copy Streaming URL copies the localhost endpoint for an Android consumer on the
+Copy Streaming URL copies `http://localhost:8080/mjpeg` for an Android consumer on the
 same handset. The dashboard always uses localhost binding.
 Copying does not change the shared status live region. On Android 13 and newer,
 the system provides the copy confirmation; older versions receive an explicit

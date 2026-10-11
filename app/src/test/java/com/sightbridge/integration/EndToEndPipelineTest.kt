@@ -55,7 +55,7 @@ class EndToEndPipelineTest {
         assertTrue("Socket should be connected", socket.isConnected)
 
         val out = socket.getOutputStream()
-        val getRequest = "GET /live.mjpeg HTTP/1.1\r\nHost: 127.0.0.1:$testPort\r\nConnection: close\r\n\r\n"
+        val getRequest = "GET /mjpeg HTTP/1.1\r\nHost: 127.0.0.1:$testPort\r\nConnection: close\r\n\r\n"
         withContext(Dispatchers.IO) {
             out.write(getRequest.toByteArray(Charsets.US_ASCII))
             out.flush()

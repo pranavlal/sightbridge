@@ -101,7 +101,7 @@ If you don't have physical Ray-Ban Meta glasses connected:
 - MJPEG binds to `127.0.0.1` by default so only apps on the phone can receive camera frames.
 - The dashboard always starts localhost-only streaming; it provides no LAN-sharing control. The adapter still supports token-protected LAN HTTP for internal tests, which must be removed or hardened before a public release.
 - The localhost feed intentionally allows other apps on the same phone, including The vOICe for Android, to read frames while the media server runs. It has no per-app authentication. This interoperability choice is accepted by the project owner; access by other local apps is not a release blocker. The server remains localhost-only in the dashboard and stops serving frames when media output stops.
-- The only supported HTTP path is `/live.mjpeg`; malformed and oversized requests are rejected and concurrent clients are capped.
+- The streaming URL is `http://localhost:8080/mjpeg`. The previous `/live.mjpeg` path remains supported for existing consumers; malformed and oversized requests are rejected and concurrent clients are capped.
 
 ## Launcher Icon
 
@@ -121,3 +121,15 @@ left/center/right and upper/lower positions. Independent detections can announce
 an unrecognized object or unidentified visual region when names are unreliable.
 These cues do not establish distance or a safe route, and not every object is detected.
 See [AI processing](docs/AI_PROCESSING.md) for the model and validation details.
+
+
+## Ground hazard dataset research
+
+Public dataset acquisition and the controlled detection comparison are documented
+in [ground hazard research](docs/GROUND_HAZARD_RESEARCH.md) and the
+[accuracy report](reports/ground-hazard-accuracy-2026-10-12/REPORT.md).
+Combining Accessibility Barriers with the other sources improved stairs, but the
+shared-class macro F1 gain was only 0.71 percentage points, below the predefined
+five-point criterion. No hazard detector was added to the Android app.
+Reproduction scripts are in [the training workspace](training/ground_hazards/README.md);
+datasets, environments and model checkpoints are excluded from Git and APKs.

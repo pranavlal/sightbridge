@@ -12,7 +12,7 @@ android {
         applicationId = "com.sightbridge"
         minSdk = 36
         targetSdk = 36
-        versionCode = 7
+        versionCode = 8
         versionName = "1.2.0"
         manifestPlaceholders["appLabel"] = "@string/app_name"
 

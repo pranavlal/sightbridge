@@ -56,7 +56,7 @@ class DashboardAccessibilityTest {
         compose.onNodeWithText("Start AI Processing").performScrollTo().assertIsEnabled()
         compose.onNodeWithText("Stop AI Processing").performScrollTo().assertIsNotEnabled()
         compose.onNodeWithText("Copy Streaming URL").assertDoesNotExist()
-        compose.onNodeWithText("http://127.0.0.1:8080/live.mjpeg", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("http://localhost:8080/mjpeg", substring = true).assertDoesNotExist()
         compose.onNodeWithContentDescription("Keep stream private to this phone").assertDoesNotExist()
         compose.onNodeWithText("System Health Watchdog", substring = true).assertDoesNotExist()
         compose.onNodeWithText("Frames analyzed:", substring = true).assertDoesNotExist()
@@ -75,17 +75,17 @@ class DashboardAccessibilityTest {
             } catch (e: Exception) {
                 throw AssertionError("Media start failed: ${controller.status.value}", e)
             }
-            compose.onNodeWithText("http://127.0.0.1:8080/live.mjpeg", substring = true).performScrollTo().assertIsDisplayed()
+            compose.onNodeWithText("http://localhost:8080/mjpeg", substring = true).performScrollTo().assertIsDisplayed()
             compose.onNodeWithText("Copy Streaming URL").performScrollTo().performClick()
             compose.runOnIdle {
                 val clipboard = compose.activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                assertEquals("http://127.0.0.1:8080/live.mjpeg", clipboard.primaryClip?.getItemAt(0)?.text.toString())
+                assertEquals("http://localhost:8080/mjpeg", clipboard.primaryClip?.getItemAt(0)?.text.toString())
             }
             compose.onNodeWithText("Start AI Processing").performScrollTo().assertIsEnabled()
             compose.onNodeWithText("Media Server Stop").performScrollTo().performClick()
             compose.waitUntil(10_000) { !controller.status.value.mediaRunning && !controller.status.value.busy }
             compose.onNodeWithText("Copy Streaming URL").assertDoesNotExist()
-            compose.onNodeWithText("http://127.0.0.1:8080/live.mjpeg", substring = true).assertDoesNotExist()
+            compose.onNodeWithText("http://localhost:8080/mjpeg", substring = true).assertDoesNotExist()
         } finally { runBlocking { controller.stopMedia() } }
     }
 
