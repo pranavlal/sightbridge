@@ -28,6 +28,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.sightbridge.core.model.CameraSourceType
 import com.sightbridge.pipeline.PipelineController
 import kotlinx.coroutines.launch
@@ -48,13 +49,17 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         bound = bindService(Intent(this, PipelineService::class.java), connection, Context.BIND_AUTO_CREATE)
         setContent {
-            MaterialTheme {
-                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    runtime?.let { service ->
-                        SightBridgeDashboard(service,
-                            onStartMetaRegistration = { service.meta.startRegistration(this) },
-                            onStartMetaUnregistration = { service.meta.startUnregistration(this) })
-                    } ?: Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Loading SightBridge") }
+            // Supply the activity owner explicitly. The older Compose UI/newer
+            // Lifecycle bridge otherwise relies on reflection stripped by R8.
+            CompositionLocalProvider(LocalLifecycleOwner provides this@MainActivity) {
+                MaterialTheme {
+                    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                        runtime?.let { service ->
+                            SightBridgeDashboard(service,
+                                onStartMetaRegistration = { service.meta.startRegistration(this) },
+                                onStartMetaUnregistration = { service.meta.startUnregistration(this) })
+                        } ?: Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Loading SightBridge") }
+                    }
                 }
             }
         }

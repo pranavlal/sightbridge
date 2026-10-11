@@ -90,3 +90,32 @@ See [release readiness](RELEASE_READINESS.md) for the broader release gates.
   alignment checks passed. The merged package has no debug flag or removed
   microphone/shared-storage permissions. Private signing files have owner-only permissions.
 - This artifact has not yet completed signed-build device/hardware testing.
+
+## Signed-build compatibility fixes
+
+The initial code-3 artifact failed during dashboard composition after R8 removed
+the legacy Compose/Lifecycle reflection bridge. The dashboard now supplies its
+lifecycle owner explicitly. Hardware testing also exposed MediaPipe Flogger
+stack inspection and native protobuf field lookup failures; the application
+keeps those SDK classes and members through shrinking. These changes follow the
+[upstream MediaPipe R8 issue](https://github.com/google-ai-edge/mediapipe/issues/6138).
+The ONNX Runtime classes are also preserved as required by its
+[Android R8 instructions](https://onnxruntime.ai/docs/build/android.html), after
+the signed build exposed a JNI class lookup failure during foreground inference.
+
+To check the actual installed signed APK's dashboard, use
+`python3 scripts/check_signed_startup.py`. The phone must be unlocked with
+installer/permission dialogs closed. `--restart` stops any running camera session.
+This startup check does not replace media/AI hardware validation.
+
+## Installed testing artifact, 2026-10-11
+
+- Version 1.2.0-testing, Android version code 7; same testing certificate above.
+- APK SHA-256: `0c6e7d72af62695b65386735cf8422417d4f59a0b730f8f3660907395b3deb3e`.
+- Installed on the OnePlus through its normal confirmation screen using ADB UI
+  interaction. The previous debug app and instrumentation package were removed.
+- Dashboard startup, USB permissions, AI inference with position output and
+  concurrent media streaming were checked on the actual non-debuggable APK.
+  The localhost MJPEG stream returned 65 complete JPEG frames in three seconds.
+- Signature, release vital lint and static alignment of 83 native libraries passed.
+  Full long-duration, permission-denial and accessibility assessment remain pending.

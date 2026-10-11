@@ -204,7 +204,14 @@ release-style `com.sightbridge.testing` APK can now be signed with the persisten
 testing key; see [signed testing](SIGNED_TESTING.md). Its testing identity is not
 production signing approval or a completed signed-build hardware assessment.
 
-The final debug APK is installed on the OnePlus. The combined device suite passed
+The code-7 signed testing build is now installed in place of the debug app.
+Actual-device checks confirmed dashboard startup, USB camera access, AI position
+output and concurrent localhost MJPEG streaming (65 JPEG frames in three seconds).
+R8 rules now preserve MediaPipe/Flogger/protobuf and ONNX native lookup targets;
+the lifecycle owner is supplied explicitly to Compose. These checks cover basic
+signed-build functionality, not the full reliability or accessibility matrix.
+
+The earlier debug APK was tested on the OnePlus. The combined device suite passed
 (ten active checks, including merged permissions, plus one skipped deployment-only
 check). All five dashboard checks also passed at 200% text size. The original
 135% text size was restored. These automated checks do not complete the manual
