@@ -120,3 +120,7 @@ This document records all interactions, prompts, architectural decisions, and bu
 - Confirmed debug and shrunk release builds, 46 JVM tests, lint with zero errors, ten active combined device checks, and five dashboard checks at 200% text scaling. Restored the original 135% setting.
 - Added a static 16 KB native-library checker. CameraX 1.3.2 failed; CameraX 1.6.2 passed across 83 arm64 libraries and independent ZIP alignment checks. The handset uses 4 KB pages, so 16 KB runtime execution remains a release gate.
 - Documented production signing, SDK/component review, feed authentication, dependency/license review, long-duration reliability and WCAG 2.2 AA manual assessment in RELEASE_READINESS.md. No production or accessibility conformance certification is claimed. The current bounded token/private-key scan does not establish a complete secret-history audit.
+
+### Entry 14: Accepted same-phone stream sharing (2026-10-11)
+
+- The owner confirmed that access by other apps on the phone, including The vOICe for Android, is intended. Updated the README and release review to record this acceptance and remove per-app authentication as a release requirement. Localhost binding, shutdown behavior and the separate LAN review remain in scope. This is a documentation change; runtime behavior is unchanged.

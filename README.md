@@ -93,7 +93,7 @@ If you don't have physical Ray-Ban Meta glasses connected:
 
 - MJPEG binds to `127.0.0.1` by default so only apps on the phone can receive camera frames.
 - The dashboard always starts localhost-only streaming; it provides no LAN-sharing control. The adapter still supports token-protected LAN HTTP for internal tests, which must be removed or hardened before a public release.
-- Localhost restricts network access, but does not authenticate other apps on the same phone. A malicious local app can potentially read the feed while the server runs. See the release review for the required authentication/interoperability decision.
+- The localhost feed intentionally allows other apps on the same phone, including The vOICe for Android, to read frames while the media server runs. It has no per-app authentication. This interoperability choice is accepted by the project owner; access by other local apps is not a release blocker. The server remains localhost-only in the dashboard and stops serving frames when media output stops.
 - The only supported HTTP path is `/live.mjpeg`; malformed and oversized requests are rejected and concurrent clients are capped.
 
 ## Launcher Icon

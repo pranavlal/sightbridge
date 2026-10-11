@@ -48,7 +48,7 @@ are recorded below after the build review. Earlier results remain historical.
 
 | Area | Current evidence | Required before production |
 | --- | --- | --- |
-| Feed exposure | Dashboard binds to 127.0.0.1. No LAN control is shown. Local feed is unauthenticated. | Decide and test session-token authentication with The vOICe, or explicitly assess/document the local-app threat. Localhost does not identify a trusted consumer. |
+| Feed exposure | Dashboard binds to 127.0.0.1. No LAN control is shown. Local feed deliberately permits access by other apps on the same phone, including The vOICe. The project owner accepted this behavior on 2026-10-11. | Local-app access and lack of per-app authentication are accepted design choices, not release blockers. Verify localhost-only binding, interoperability and prompt shutdown when media stops. |
 | LAN adapter | Internal adapter supports token-protected plain HTTP LAN output. | Remove unused LAN capability from production or implement authenticated secure transport and an explicit sharing flow. Do not describe a token over HTTP as encrypted. |
 | HTTP robustness | Header limit 8192 bytes, initial read timeout five seconds, ten-client cap, conflated frame queues, disconnect handling. | Test slow readers, repeated malformed connections, port contention, connection saturation, repeated start/stop and resource release in a signed release build. |
 | Components | Pipeline service and FileProvider are non-exported; provider shares only shared_photos cache paths; PendingIntents are immutable. Launcher/USB/auth activity is exported. | Inspect the merged release manifest, including SDK-added services, providers, receivers, permissions and deep links. Verify external intents cannot silently start capture or complete an untrusted auth callback. |
@@ -68,6 +68,18 @@ secure the raw HTTP server or change The vOICe's independent client policy.
 Do not treat it as protection for the localhost stream.
 
 ## Well-behaved Android release gates
+
+### Accepted same-phone sharing decision, 2026-10-11
+
+The project owner explicitly confirmed that other apps accessing the stream is
+its intended purpose, with The vOICe for Android as a consumer. Keep the local
+MJPEG endpoint unauthenticated; adding a token or restricting consumers is not
+required for release. Other apps on the phone can access frames while media is
+running, without SightBridge identifying the caller. Document this behavior in
+tester/privacy information. This acceptance applies to same-phone access and
+does not authorize exposing the camera stream on the LAN or internet.
+
+### Lifecycle and reliability
 
 Keep capture user-initiated, show the camera foreground notification, offer Stop
 all, release camera/wake-lock resources when idle, and never auto-resume capture

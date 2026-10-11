@@ -2,6 +2,8 @@
 
 ## 1.2.0 — 2026-10-11 (testing; production release pending)
 
+- Record the owner's acceptance of unauthenticated same-phone streaming for apps such as The vOICe; remove local-app authentication from release blockers while retaining localhost-only dashboard streaming.
+
 - Require Android 16 (API 36), matching the connected OnePlus; compile and target API 36.
 - Update to Android Gradle Plugin 8.13.2, its supported Gradle 8.13 toolchain, and Kotlin compilerOptions; remove the standalone R8 override.
 - Keep camera capture in a camera foreground service with a visible notification and Stop all action; release the camera and wake lock when processing stops.
