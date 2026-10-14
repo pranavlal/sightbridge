@@ -133,3 +133,22 @@ This startup check does not replace media/AI hardware validation.
   Streaming from the installed update has not yet been checked with a live camera.
 - Rebuilt for the GitHub update: all 47 Android unit tests and eight research
   tests passed; the signed APK was reverified with the same certificate and checksum.
+
+## Testing pre-release 2, 2026-10-14
+
+- GitHub tag: `v1.2.0-testing.2`; package `com.sightbridge.testing`, app version
+  `1.2.0-testing`, Android version code 9, Android 16+, arm64-v8a.
+- Signed with the existing testing certificate shown above. The APK Signature
+  Scheme v3 signature, 16 KB ZIP alignment, and all 35 bundled 64-bit native
+  libraries' static alignment checks passed.
+- APK SHA-256:
+  `d4e728bf4f1dc0702f2890fe0d7fd593ded27322c856d0c8710cac86b9c1157d`.
+- The signed APK updated the previous code-8 testing installation on the
+  OnePlus. Its dashboard startup passed after first-launch permission handling.
+  The attached USB webcam delivered MJPEG frames from the signed build through
+  a loopback-bound server; streaming was stopped after verification. TalkBack
+  remained enabled.
+- Debug-build verification passed 51 JVM tests, Android lint with zero errors,
+  and 11 active phone tests with the USB webcam. One optional device test was
+  skipped by design. The Meta glasses video path remains untested without
+  physical glasses.

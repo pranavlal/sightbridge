@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.2.0-testing.2 — 2026-10-14
+
 - Update Meta Wearables DAT to 1.0.1 from Maven Central and migrate to the
   session, camera and stream lifecycle.
 - Ask for Android permissions on first launch, then request Meta AI registration

@@ -12,7 +12,7 @@ android {
         applicationId = "com.sightbridge"
         minSdk = 36
         targetSdk = 36
-        versionCode = 8
+        versionCode = 9
         versionName = "1.2.0"
         manifestPlaceholders["appLabel"] = "@string/app_name"
         manifestPlaceholders["mwdat_application_id"] = providers.gradleProperty("mwdatApplicationId").orElse("0").get()

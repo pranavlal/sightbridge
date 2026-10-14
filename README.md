@@ -1,6 +1,6 @@
 # SightBridge — offline camera streaming and object cues
 
-**Current testing version: 1.2.0 (Android version code 8). Minimum Android: 16 (API 36).**
+**Latest testing release: [v1.2.0-testing.2](https://github.com/pranavlal/sightbridge/releases/tag/v1.2.0-testing.2) (Android version code 9). Minimum Android: 16 (API 36).**
 
 SightBridge shares a USB webcam or phone-camera feed with The vOICe for Android
 and optionally runs offline object recognition and position cues. A camera
