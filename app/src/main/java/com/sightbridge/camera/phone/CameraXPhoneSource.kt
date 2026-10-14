@@ -57,6 +57,7 @@ class CameraXPhoneSource(
     override suspend fun initialise(): Result<Unit> = suspendCancellableCoroutine { continuation ->
         val providerFuture = ProcessCameraProvider.getInstance(context)
         providerFuture.addListener({
+            if (!continuation.isActive) return@addListener
             try {
                 cameraProvider = providerFuture.get()
                 _state.value = CameraSourceState.READY
@@ -126,7 +127,7 @@ class CameraXPhoneSource(
                     pixelFormat = PixelFormat.RGBA_8888,
                     bitmap = bitmap
                 )
-                if (!_frames.tryEmit(cameraFrame)) bitmap.recycle()
+                if (_frames.subscriptionCount.value == 0 || !_frames.tryEmit(cameraFrame)) bitmap.recycle()
             } finally {
                 imageProxy.close()
             }

@@ -8,10 +8,11 @@ class SightBridgeApp : Application() {
     override fun onCreate() {
         super.onCreate()
         runCatching {
-            Wearables.initialize(this)
-            Log.i("SightBridgeApp", "Meta Wearables DAT SDK initialized successfully")
-        }.onFailure { e ->
-            Log.w("SightBridgeApp", "Meta Wearables DAT SDK initialization deferred or unavailable: ${e.message}")
+            Wearables.initialize(this).onFailure { error, cause ->
+                Log.w("SightBridgeApp", "Meta Wearables DAT initialization failed: ${error.description}", cause)
+            }
+        }.onFailure { error ->
+            Log.w("SightBridgeApp", "Meta Wearables DAT initialization unavailable", error)
         }
     }
 }

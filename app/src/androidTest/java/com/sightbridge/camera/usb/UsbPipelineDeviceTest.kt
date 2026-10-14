@@ -4,6 +4,10 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import android.view.accessibility.AccessibilityNodeInfo
+import android.view.accessibility.AccessibilityManager
+import android.accessibilityservice.AccessibilityServiceInfo
+import android.content.Context
+import android.provider.Settings
 import com.sightbridge.app.MainActivity
 import org.junit.Rule
 import org.junit.Before
@@ -94,10 +98,26 @@ class UsbPipelineDeviceTest {
         startWithDialogs("Start AI Processing") { controller.status.value.aiRunning }
         compose.waitUntil(30_000) { controller.ai.status.value.processedFrames >= 2 }
         assertFalse("AI-only start must not start the HTTP server", controller.status.value.mediaRunning)
-        assertTrue("English speech engine should initialize on the handset", controller.ai.status.value.speechReady)
-        compose.waitUntil(20_000) {
-            controller.ai.status.value.let { it.spokenUtterances + it.accessibilityAnnouncements >= 1 }
+        assertTrue("Speech output should initialize on the handset", controller.ai.status.value.speechReady)
+        val accessibility = compose.activity.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
+        val screenReaderActive = accessibility.isEnabled &&
+            accessibility.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_SPOKEN).isNotEmpty()
+        if (Settings.Secure.getString(compose.activity.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+                .orEmpty().contains("com.google.android.marvin.talkback")) {
+            assertTrue("Instrumentation suppressed enabled TalkBack", screenReaderActive)
         }
+        compose.waitUntil(20_000) {
+            controller.ai.status.value.let {
+                if (screenReaderActive) it.accessibilityAnnouncements >= 1 else it.spokenUtterances >= 1
+            }
+        }
+        val speech = controller.ai.status.value
+        if (screenReaderActive) assertEquals("App TTS must not compete with the screen reader", 0L, speech.spokenUtterances)
+        else assertEquals("No screen reader should receive announcements", 0L, speech.accessibilityAnnouncements)
+        InstrumentationRegistry.getInstrumentation().sendStatus(0, android.os.Bundle().apply {
+            putString("stream", "\nSpeech route: ${if (screenReaderActive) "screen reader" else "phone TTS"}; " +
+                "announcements=${speech.accessibilityAnnouncements}, utterances=${speech.spokenUtterances}\n")
+        })
         assertTrue("Position-only detector must initialize on the handset", controller.ai.status.value.localizationReady)
         startWithDialogs("Media Server Start") { controller.status.value.mediaRunning }
         assertJpegStream()

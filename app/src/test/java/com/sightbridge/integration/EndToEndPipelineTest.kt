@@ -40,7 +40,7 @@ class EndToEndPipelineTest {
         assertTrue("Camera source connection should succeed", connectCamResult.isSuccess)
 
         // 2. Initialise & Start Voice HTTP Streamer
-        val initVoiceResult = voiceAdapter.initialise(VoiceStreamConfig(port = testPort, bindLocalhostOnly = true))
+        val initVoiceResult = voiceAdapter.initialise(VoiceStreamConfig(port = testPort))
         assertTrue("Voice stream adapter initialization should succeed", initVoiceResult.isSuccess)
 
         val startVoiceResult = voiceAdapter.start()

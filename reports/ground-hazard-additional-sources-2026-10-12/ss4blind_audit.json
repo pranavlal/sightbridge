@@ -1,0 +1,52 @@
+{
+  "inventories": {
+    "ss4blind_curbs": {
+      "matched_images": 100,
+      "label_pixels": 871230,
+      "palette": [
+        196,
+        196,
+        196
+      ],
+      "label": 3
+    },
+    "ss4blind_rgbdss": {
+      "matched_images": 400,
+      "label_pixels": 2437749,
+      "palette": [
+        196,
+        196,
+        196
+      ],
+      "label": 3
+    },
+    "ss4blind_terrain": {
+      "matched_images": 120,
+      "label_pixels": 3377069,
+      "palette": [
+        255,
+        128,
+        0
+      ],
+      "label": 2
+    }
+  },
+  "retained": {
+    "ss4blind_curbs": 99,
+    "ss4blind_rgbdss": 400,
+    "ss4blind_terrain": 120
+  },
+  "excluded": [
+    {
+      "image": "raw/additional/ss4blind_curbs/Curbs Dataset/left/test1/10/31.png",
+      "reason": "conservative near overlap"
+    }
+  ],
+  "objects": {
+    "3": 934,
+    "2": 40
+  },
+  "original_manifest_sha256": "e3fb3a135ba7b1b8020f8a57a9215728cadedd3e3ad5111e9e784d4934970316",
+  "license": "No explicit archive reuse terms found; not approved for deployment",
+  "palette_provenance": "RGB-D-SS Labelled Classes.txt defines curb RGB196; visually confirmed same curb coding in Curbs Dataset; terrain annotation label.txt defines stairs orange"
+}

@@ -37,15 +37,10 @@ class HttpMjpegVoiceStreamAdapter(
         if (config.port !in 1..65535 || config.jpegQuality !in 1..100) {
             return Result.failure(IllegalArgumentException("Invalid MJPEG port or JPEG quality"))
         }
-        if (!config.bindLocalhostOnly && config.accessToken.isNullOrBlank()) {
-            return Result.failure(IllegalArgumentException("LAN streaming requires an access token"))
-        }
         stop() // Safely stop and release any existing server instance before reinitialization
         activeConfig = config
         mjpegServer = MjpegHttpServer(
-            port = config.port,
-            bindToLocalhostOnly = config.bindLocalhostOnly,
-            accessToken = config.accessToken
+            port = config.port
         )
         return Result.success(Unit)
     }
@@ -54,7 +49,10 @@ class HttpMjpegVoiceStreamAdapter(
         if (_state.value == VoiceStreamState.STREAMING) return Result.success(Unit)
 
         _state.value = VoiceStreamState.STARTING
-        val server = mjpegServer ?: return Result.failure(IllegalStateException("Server not initialised"))
+        val server = mjpegServer ?: run {
+            _state.value = VoiceStreamState.FAILED
+            return Result.failure(IllegalStateException("Server not initialised"))
+        }
         
         val startResult = server.start()
         if (startResult.isFailure) {
@@ -102,7 +100,7 @@ class HttpMjpegVoiceStreamAdapter(
     }
 
     override suspend fun stop(): Result<Unit> {
-        consumerJob?.cancel()
+        consumerJob?.cancelAndJoin()
         consumerJob = null
         mjpegServer?.stop()
         frameBuffer.clear()

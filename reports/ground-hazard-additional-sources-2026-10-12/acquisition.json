@@ -1,0 +1,55 @@
+{
+  "status": {
+    "gonet": "complete",
+    "ss4blind": "complete",
+    "gnd": "complete",
+    "sanpo_extra": "complete"
+  },
+  "archives": [
+    {
+      "name": "gnd_UMD_map1.png",
+      "bytes": 3161720,
+      "sha256": "2ca91e65d9eaa070e5b9d3662d3e21e2101b54d9ba1bf3b61c2ac96a958a23a3"
+    },
+    {
+      "name": "gnd_UMD_map3.png",
+      "bytes": 4937183,
+      "sha256": "4afb53d810d0d07bdc84ebfb8441459685179a00c0c5f037584d78eb573c06fd"
+    },
+    {
+      "name": "gnd_UMD_map3_2_mckeldin_south.zip",
+      "bytes": 198808182,
+      "sha256": "771ad11e0efc21fbecd1da11ea76bb4ece7d7ade6dcb5095be4c3450a9f152cb"
+    },
+    {
+      "name": "gonet_test.tar.gz",
+      "bytes": 5307741,
+      "sha256": "f747fc481e987c1da75d623294cebe7098a1fef52afc6c7ae412643d7d9e2f48"
+    },
+    {
+      "name": "gonet_train.tar.gz",
+      "bytes": 5349905,
+      "sha256": "1131af78e6448f1476d4dbef3a6e60d99b5b665cccc8b400b71fdad5a52a4e96"
+    },
+    {
+      "name": "gonet_val.tar.gz",
+      "bytes": 5474757,
+      "sha256": "a69ac52e072928dd0627aad88d62821a6a957faf9e4e010e7bf617a8060bb667"
+    },
+    {
+      "name": "ss4blind_curbs.zip",
+      "bytes": 114303698,
+      "sha256": "72ce7b05024bda7265153fdf862433ec7afc42db488d9c6b6e502ceedcd3bd64"
+    },
+    {
+      "name": "ss4blind_rgbdss.zip",
+      "bytes": 279477509,
+      "sha256": "d7f3ec6dd98a0d069dca5d62b98b053976b11a31d0ef159fc7e71e71c85fb99e"
+    },
+    {
+      "name": "ss4blind_terrain.zip",
+      "bytes": 103872937,
+      "sha256": "04f41b24a8d0e1d9e4f798bf341998a00550c56146fd1c81accdd93e8900b790"
+    }
+  ]
+}

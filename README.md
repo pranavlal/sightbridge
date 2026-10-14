@@ -1,16 +1,18 @@
 # SightBridge — offline camera streaming and object cues
 
-**Current testing version: 1.2.0 (Android version code 7). Minimum Android: 16 (API 36).**
+**Current testing version: 1.2.0 (Android version code 8). Minimum Android: 16 (API 36).**
 
 SightBridge shares a USB webcam or phone-camera feed with The vOICe for Android
 and optionally runs offline object recognition and position cues. A camera
 foreground service keeps user-started processing alive when the dashboard closes.
-The Meta Wearables DAT integration is experimental and currently uses developer
-credentials. See [changes](CHANGELOG.md), [AI processing](docs/AI_PROCESSING.md),
+Meta AI glasses can provide the camera feed through the Meta Wearables DAT SDK.
+The included `0` credentials work in Meta AI Developer Mode. See [changes](CHANGELOG.md), [AI processing](docs/AI_PROCESSING.md),
 and [release readiness](docs/RELEASE_READINESS.md).
 
 This is a testing build. Production security review and a complete WCAG 2.2 AA
 assessment using W3C WCAG2ICT guidance remain release gates.
+See the [October 2026 security and accessibility review](docs/SECURITY_ACCESSIBILITY_REVIEW_2026-10-14.md)
+for the current fixes, test results and remaining validation limits.
 
 ## Prerequisites & Environment
 
@@ -21,28 +23,11 @@ assessment using W3C WCAG2ICT guidance remain release gates.
 
 ---
 
-## 1. Configure GitHub Personal Access Token
+## 1. Meta AI App & Glasses Configuration
 
-The Meta DAT SDK is hosted on GitHub Packages (`maven.pkg.github.com/facebook/meta-wearables-dat-android`). To download the SDK dependencies:
-
-1. Create a GitHub Personal Access Token (classic) with `read:packages` scope at [GitHub Developer Settings](https://github.com/settings/tokens).
-2. Set the token using one of the following methods:
-
-### Option A: Environment Variable (Recommended for CLI)
-```bash
-export GITHUB_TOKEN=ghp_your_token_here
-```
-
-### Option B: Local Properties File
-Add your token to `local.properties`:
-```properties
-sdk.dir=/opt/android-sdk
-github_token=ghp_your_token_here
-```
-
----
-
-## 2. Meta AI App & Glasses Configuration
+DAT 1.0.1 downloads from Maven Central through the normal Gradle build. It does
+not require a GitHub token. Install the Meta AI app and pair supported Meta AI
+glasses with the phone.
 
 ### Enable Developer Mode in Meta AI App
 1. On your iOS or Android phone, open the **Meta AI app**.
@@ -50,11 +35,25 @@ github_token=ghp_your_token_here
 3. Tap the **App version** number **5 times** until the Developer Mode toggle appears.
 4. Enable **Developer Mode**.
 
-> **Note for Developer Mode:** In Developer Mode, `APPLICATION_ID` and `CLIENT_TOKEN` in `AndroidManifest.xml` are set to `"0"` for local testing.
+For local testing, the app uses `0` for both DAT credentials. For distribution
+outside Developer Mode, register SightBridge in the Wearables Developer Center
+and pass its credentials to Gradle with `-PmwdatApplicationId=...` and
+`-PmwdatClientToken=...` (or set those properties in a private Gradle
+properties file). Register the app's `sightbridge` callback scheme there.
+
+On first launch, SightBridge asks for Android camera, Bluetooth and notification
+permissions. Select **Meta Glasses**, then **Connect Meta Glasses** to complete
+registration in Meta AI. Starting the media server or AI for the first time will
+request the separate Meta glasses camera permission through Meta AI. If a
+permission is declined, the start action can be tried again after granting it.
+The glasses feed supports the same MJPEG server and on-device AI controls as
+the other camera sources. The phone camera permission is only needed by the
+phone, mock and USB camera foreground service paths; Meta glasses streaming
+uses the connected-device foreground service type.
 
 ---
 
-## 3. Build & Verification Commands
+## 2. Build & Verification Commands
 
 ### Install Gradle Wrapper
 ```bash
@@ -83,6 +82,19 @@ secure key backup and future updates.
 JAVA_HOME=/usr/lib/jvm/java-17-openjdk ./gradlew testDebugUnitTest lintDebug assembleDebug assembleRelease
 ```
 
+For device tests with an attached USB webcam and TalkBack enabled, install both
+the debug app and test APK, then run:
+
+```bash
+JAVA_HOME=/usr/lib/jvm/java-17-openjdk ./gradlew installDebug installDebugAndroidTest
+adb shell am instrument -w -r -e usbCamera true com.sightbridge.test/com.sightbridge.accessibility.AccessibilityPreservingTestRunner
+```
+
+The test runner preserves enabled accessibility services; the Android test
+automation default otherwise temporarily suppresses TalkBack. The USB webcam
+and TalkBack checks passed on the connected OnePlus during the October 2026
+testing cycle. The Meta glasses video path still needs physical-glasses testing.
+
 ### Install onto Connected Android Device / Emulator
 ```bash
 JAVA_HOME=/usr/lib/jvm/java-17-openjdk ./gradlew installDebug
@@ -90,17 +102,20 @@ JAVA_HOME=/usr/lib/jvm/java-17-openjdk ./gradlew installDebug
 
 ---
 
-## 4. Testing Without Hardware (Mock Device Kit)
+## 3. Testing Without Hardware (Mock Device Kit)
 
 If you don't have physical Ray-Ban Meta glasses connected:
 1. The SDK includes `mwdat-mockdevice` (`com.meta.wearable:mwdat-mockdevice`).
-2. You can test streaming, session creation, and device capabilities using simulated feeds from your phone/emulator camera.
+2. The standalone **Mock Generator** option tests SightBridge's downstream
+   camera pipeline. Meta's Mock Device Kit is a debug dependency for testing
+   DAT registration, sessions and permissions; physical glasses are needed to
+   verify the real video path.
 
 ## Privacy and Network Safety
 
-- MJPEG binds to `127.0.0.1` by default so only apps on the phone can receive camera frames.
-- The dashboard always starts localhost-only streaming; it provides no LAN-sharing control. The adapter still supports token-protected LAN HTTP for internal tests, which must be removed or hardened before a public release.
+- MJPEG always binds to `127.0.0.1`, so only apps on the phone can receive camera frames. There is no LAN-sharing mode.
 - The localhost feed intentionally allows other apps on the same phone, including The vOICe for Android, to read frames while the media server runs. It has no per-app authentication. This interoperability choice is accepted by the project owner; access by other local apps is not a release blocker. The server remains localhost-only in the dashboard and stops serving frames when media output stops.
+- The Meta DAT SDK's optional analytics and SDK crash reporting are disabled in the manifest. Meta AI registration and device access still use Meta's companion app and its service.
 - The streaming URL is `http://localhost:8080/mjpeg`. The previous `/live.mjpeg` path remains supported for existing consumers; malformed and oversized requests are rejected and concurrent clients are capped.
 
 ## Launcher Icon
@@ -121,6 +136,13 @@ left/center/right and upper/lower positions. Independent detections can announce
 an unrecognized object or unidentified visual region when names are unreliable.
 These cues do not establish distance or a safe route, and not every object is detected.
 See [AI processing](docs/AI_PROCESSING.md) for the model and validation details.
+
+When TalkBack or another spoken-feedback service is enabled, SightBridge sends
+AI descriptions to that service as accessibility announcements and keeps its
+own voice quiet. Otherwise it uses the phone's selected default text-to-speech
+engine and voice. That voice must be downloaded and work without a network
+connection; if it is unavailable, the descriptions remain visible and the app
+shows a speech warning. SightBridge does not turn TalkBack off.
 
 
 ## Ground hazard dataset research

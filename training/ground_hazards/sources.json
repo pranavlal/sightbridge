@@ -1,11 +1,72 @@
 {
-  "brazil": {"source": "https://data.mendeley.com/datasets/t576ydh9v8/4", "license": "CC BY 4.0", "supervision": "road/crack/pothole binary masks"},
-  "rdd2022": {"source": "https://doi.org/10.6084/m9.figshare.21431547.v1", "license": "CC BY 4.0 (official Figshare API)", "supervision": "road damage bounding boxes", "note": "Published test images have no public labels"},
-  "wet_potholes": {"source": "https://data.mendeley.com/datasets/tp95cdvgm8/1", "license": "CC BY 4.0", "supervision": "pothole bounding boxes"},
-  "gutters": {"source": "https://data.mendeley.com/datasets/3psr2g4s7r/1", "license": "CC BY 4.0", "supervision": "uncovered gutter and bollard bounding boxes"},
-  "rgbd_stairs": {"source": "https://data.mendeley.com/datasets/6kffmjt7g2/1", "license": "CC BY 4.0", "supervision": "stair lines and step surfaces with depth", "note": "Generic stair labels do not establish descending direction"},
-  "sanpo": {"source": "https://github.com/google-research-datasets/sanpo_dataset", "license": "CC BY 4.0 for data; Apache-2.0 for code", "supervision": "panoptic masks", "scope": "8 real chest-camera sessions, up to 48 matched frames per session; pilot only"},
-  "accessibility_barriers": {"source": "https://zenodo.org/records/6382090", "license": "CC BY 4.0 (official Zenodo API)", "supervision": "CVAT bounding boxes and estimated step attributes", "note": "Above-view steps with no visible vertical face may be unannotated; not a complete drop-off dataset"},
-  "exonet": {"source": "https://ieee-dataport.org/open-access/exonet-egocentric-images-walking-environments", "license": "CC BY 4.0 on source page", "status": "deferred_by_user", "reason": "IEEE DataPort login required; user chose public downloads for now"},
-  "pedestrian": {"source": "https://arxiv.org/abs/2512.19190", "status": "unavailable", "reason": "Author-linked DOI 10.5281/zenodo.10907945 does not resolve; Zenodo API returns 404. No verified alternative download found."}
+  "brazil": {
+    "source": "https://data.mendeley.com/datasets/t576ydh9v8/4",
+    "license": "CC BY 4.0",
+    "supervision": "road/crack/pothole binary masks"
+  },
+  "rdd2022": {
+    "source": "https://doi.org/10.6084/m9.figshare.21431547.v1",
+    "license": "CC BY 4.0 (official Figshare API)",
+    "supervision": "road damage bounding boxes",
+    "note": "Published test images have no public labels"
+  },
+  "wet_potholes": {
+    "source": "https://data.mendeley.com/datasets/tp95cdvgm8/1",
+    "license": "CC BY 4.0",
+    "supervision": "pothole bounding boxes"
+  },
+  "gutters": {
+    "source": "https://data.mendeley.com/datasets/3psr2g4s7r/1",
+    "license": "CC BY 4.0",
+    "supervision": "uncovered gutter and bollard bounding boxes"
+  },
+  "rgbd_stairs": {
+    "source": "https://data.mendeley.com/datasets/6kffmjt7g2/1",
+    "license": "CC BY 4.0",
+    "supervision": "stair lines and step surfaces with depth",
+    "note": "Generic stair labels do not establish descending direction"
+  },
+  "sanpo": {
+    "source": "https://github.com/google-research-datasets/sanpo_dataset",
+    "license": "CC BY 4.0 for data; Apache-2.0 for code",
+    "supervision": "panoptic masks",
+    "scope": "Original 8-session pilot (384 pairs) plus independent 7-session official-training expansion (336 pairs); original pilot metadata/splits retained"
+  },
+  "accessibility_barriers": {
+    "source": "https://zenodo.org/records/6382090",
+    "license": "CC BY 4.0 (official Zenodo API)",
+    "supervision": "CVAT bounding boxes and estimated step attributes",
+    "note": "Above-view steps with no visible vertical face may be unannotated; not a complete drop-off dataset"
+  },
+  "exonet": {
+    "source": "https://ieee-dataport.org/open-access/exonet-egocentric-images-walking-environments",
+    "license": "CC BY 4.0 on source page",
+    "status": "deferred_by_user",
+    "reason": "IEEE DataPort login required; user chose public downloads for now"
+  },
+  "pedestrian": {
+    "source": "https://arxiv.org/abs/2512.19190",
+    "status": "unavailable",
+    "reason": "Author-linked DOI 10.5281/zenodo.10907945 does not resolve; Zenodo API returns 404. No verified alternative download found."
+  },
+  "gonet": {
+    "source": "https://cvgl.stanford.edu/gonet/dataset/",
+    "license": "CC BY-NC-SA 3.0",
+    "supervision": "unsafe/traversable scene labels; not hazard boxes",
+    "scope": "all three small annotated archives, 4800 stereo images",
+    "status": "downloaded_and_tested_research_only"
+  },
+  "ss4blind": {
+    "source": "https://github.com/elnino9ykl/SS4Blind",
+    "license": "No explicit reuse terms found in downloaded archives",
+    "supervision": "curb and stair semantic masks, RGB-D",
+    "scope": "100 curb, 120 terrain, 400 RGB-D-SS pairs; 619 external tests after quarantine",
+    "status": "downloaded_external_evaluation_only"
+  },
+  "gnd": {
+    "source": "https://doi.org/10.13021/ORC2020/JUIW5F",
+    "license": "CC0 1.0, official Dataverse API",
+    "scope": "processed UMD McKeldin South segment and UMD_map3; no camera frames",
+    "status": "downloaded_audited_not_image_training"
+  }
 }

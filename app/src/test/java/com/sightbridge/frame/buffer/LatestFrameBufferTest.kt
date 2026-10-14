@@ -39,6 +39,31 @@ class LatestFrameBufferTest {
 
         val polled = buffer.poll()
         assertNull("Stale frame should be rejected and return null", polled)
+        Mockito.verify(staleFrame.bitmap).recycle()
+    }
+
+    @Test
+    fun futureFrameRejectedOnOfferReleasesBitmap() {
+        val buffer = LatestFrameBuffer()
+        val frame = createDummyFrame(11L, 2_000_000_000L)
+
+        buffer.offer(frame, currentMonotonicNanos = 1_000_000_000L)
+
+        assertNull(buffer.poll())
+        assertEquals(1, buffer.droppedFramesCount)
+        Mockito.verify(frame.bitmap).recycle()
+    }
+
+    @Test
+    fun futureFrameRejectedOnPollReleasesBitmap() {
+        val buffer = LatestFrameBuffer()
+        val frame = createDummyFrame(12L, 2_000_000_000L)
+
+        buffer.offer(frame, currentMonotonicNanos = 3_000_000_000L)
+        assertNull(buffer.poll(currentMonotonicNanos = 1_000_000_000L))
+
+        assertEquals(1, buffer.droppedFramesCount)
+        Mockito.verify(frame.bitmap).recycle()
     }
 
     private fun createDummyFrame(id: Long, acqNanos: Long): CameraFrame {

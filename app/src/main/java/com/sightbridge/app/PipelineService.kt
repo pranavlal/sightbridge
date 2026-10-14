@@ -108,19 +108,23 @@ class PipelineService : Service(), LifecycleOwner {
     }
 
     // Start/stop jobs belong to the service even if the dashboard closes mid-command.
-    fun startMedia() { scope.launch { controller.startMedia(com.sightbridge.output.voicestream.VoiceStreamConfig(bindLocalhostOnly = true)) } }
+    fun startMedia() { scope.launch { controller.startMedia(com.sightbridge.output.voicestream.VoiceStreamConfig()) } }
     fun stopMedia() { scope.launch { controller.stopMedia() } }
     fun startAi() { scope.launch { controller.startAi() } }
     fun stopAi() { scope.launch { controller.stopAi() } }
 
     private fun ensureForeground() {
         if (foreground) return
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            throw SecurityException("Camera permission required")
+        val metaSource = mutableSourceType.value == CameraSourceType.META_GLASSES
+        val requiredPermission = if (metaSource) Manifest.permission.BLUETOOTH_CONNECT else Manifest.permission.CAMERA
+        if (ContextCompat.checkSelfPermission(this, requiredPermission) != PackageManager.PERMISSION_GRANTED) {
+            throw SecurityException("$requiredPermission permission required")
         }
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(NotificationChannel(CHANNEL, "Camera processing", NotificationManager.IMPORTANCE_LOW))
-        startForeground(NOTIFICATION_ID, notification("Starting camera processing"), ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA)
+        val serviceType = if (metaSource) ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+            else ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
+        startForeground(NOTIFICATION_ID, notification("Starting camera processing"), serviceType)
         foreground = true
         // A started service remains alive after the dashboard unbinds.
         startService(Intent(this, PipelineService::class.java))

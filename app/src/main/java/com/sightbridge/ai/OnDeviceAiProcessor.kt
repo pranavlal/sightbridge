@@ -7,6 +7,7 @@ import android.graphics.Matrix
 import android.os.SystemClock
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.speech.tts.Voice
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityManager
 import com.google.mediapipe.framework.image.BitmapImageBuilder
@@ -16,7 +17,6 @@ import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.sightbridge.core.model.CameraFrame
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import java.util.Locale
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -40,6 +40,10 @@ data class AiStatus(
     val objects: List<LocatedObject> = emptyList(),
     val error: String? = null
 )
+
+internal fun canSpeakOfflineWith(voice: Voice?): Boolean = voice != null &&
+    !voice.isNetworkConnectionRequired &&
+    voice.features?.contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED) != true
 
 /** Owns copies of sampled camera frames; never retains a media-server bitmap. */
 class OnDeviceAiProcessor(private val context: Context,
@@ -97,13 +101,10 @@ class OnDeviceAiProcessor(private val context: Context,
         val ready = CompletableDeferred<Int>()
         speech = TextToSpeech(context.applicationContext) { ready.complete(it) }
         val initialized = withTimeoutOrNull(10_000) { ready.await() } == TextToSpeech.SUCCESS
-        val language = if (initialized) speech?.setLanguage(Locale.ENGLISH) else TextToSpeech.LANG_NOT_SUPPORTED
-        val offlineVoice = if (initialized) speech?.voices?.firstOrNull {
-            it.locale.language == "en" && !it.isNetworkConnectionRequired &&
-                it.features?.contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED) != true
-        } else null
-        val success = initialized && language != TextToSpeech.LANG_MISSING_DATA && language != TextToSpeech.LANG_NOT_SUPPORTED &&
-            offlineVoice != null && speech?.setVoice(offlineVoice) == TextToSpeech.SUCCESS
+        // Respect the voice selected in the phone's text-to-speech settings.
+        val defaultVoice = if (initialized) speech?.defaultVoice ?: speech?.voice else null
+        val success = canSpeakOfflineWith(defaultVoice) &&
+            speech?.setVoice(checkNotNull(defaultVoice)) == TextToSpeech.SUCCESS
         ttsReady = success
         if (!success) { speech?.shutdown(); speech = null }
         else speech?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {

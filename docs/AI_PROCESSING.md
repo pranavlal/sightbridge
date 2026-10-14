@@ -113,14 +113,15 @@ descriptions are sent as accessibility announcements for the screen reader to
 speak. AI startup does not initialize its own TTS engine in this mode or change
 accessibility settings. The speech route is checked for each announcement, so
 toggling TalkBack during AI processing switches the output route. Without a
-screen reader, Android TextToSpeech uses an installed voice that reports no
-network requirement.
+screen reader, Android TextToSpeech uses the phone's selected default engine and
+voice only if that voice is downloaded and does not require a network connection.
+Otherwise, choose an offline default voice in Android's text-to-speech settings.
 Speech occurs at most every six seconds; unchanged descriptions repeat no more
 than every fifteen seconds. Stop AI Processing cancels work and stops the app's
 own speech; it does not interrupt or stop TalkBack. Accessibility announcements
 already handed to the screen reader remain under that service's control.
 If speech is unavailable, results remain visible and the UI explains how to
-install/enable an English voice. Inference errors are shown rather than replaced
+select a downloaded text-to-speech voice. Inference errors are shown rather than replaced
 with simulated detections.
 
 AI recognizes the model's supported object classes; it does not infer depth,
@@ -155,8 +156,8 @@ empty-result wording, camera identification, server behavior, and contrast.
 Device tests cover conditional URL visibility, clipboard contents, accessible controls,
 foreground-service capture with the dashboard destroyed, activity recreation,
 independent AI/media operation, notification stop handling,
-real webcam JPEG delivery, AI inference count, offline speech initialization and
-utterance completion, AI continuing after media stops, and MJPEG continuing after
+real webcam JPEG delivery, AI inference count, screen-reader speech routing,
+AI continuing after media stops, and MJPEG continuing after
 AI stops. A client disconnect during frame writing is handled as an ordinary
 I/O closure rather than an uncaught coroutine exception.
 
@@ -173,7 +174,7 @@ reference frame, `expectRegion=true`.
 
 Run the device suite with the attached UVC camera:
 
-    adb shell am instrument -w -r -e usbCamera true com.sightbridge.test/androidx.test.runner.AndroidJUnitRunner
+    adb shell am instrument -w -r -e usbCamera true com.sightbridge.test/com.sightbridge.accessibility.AccessibilityPreservingTestRunner
 
 ## Deployment record, 2026-10-10
 

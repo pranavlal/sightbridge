@@ -38,6 +38,7 @@ class LatestFrameBuffer(
             // Reject frames with future acquisition timestamps immediately
             if (frame.acquisitionTimestampNanos > currentMonotonicNanos) {
                 _droppedFramesCount.incrementAndGet()
+                frame.bitmap.recycle()
                 return
             }
 
@@ -63,6 +64,7 @@ class LatestFrameBuffer(
             // Reject future timestamps
             if (frame.acquisitionTimestampNanos > currentMonotonicNanos) {
                 _droppedFramesCount.incrementAndGet()
+                frame.bitmap.recycle()
                 return null
             }
 

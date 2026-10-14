@@ -115,7 +115,7 @@ def mendeley(name, dataset, version):
     return receipt
 
 
-def sanpo(sessions=8, frames=48):
+def sanpo(sessions=8, frames=48, metadata_name="sanpo_pilot.json", excluded_sessions=(), training_only=False):
     api = "https://storage.googleapis.com/storage/v1/b/gresearch/o"
 
     def listing(prefix, delimiter=None):
@@ -149,6 +149,10 @@ def sanpo(sessions=8, frames=48):
     selected = []
     # Pilot only: deterministic spread across session IDs, annotated chest frames.
     candidates = [p for p in overview["prefixes"] if not p.endswith("/splits/")]
+    excluded = set(excluded_sessions)
+    official_train = set((DATA / "raw/sanpo/sanpo-real/splits/train_session_ids.txt").read_text().splitlines())
+    candidates = [p for p in candidates if p.rstrip("/").split("/")[-1] not in excluded
+                  and (not training_only or p.rstrip("/").split("/")[-1] in official_train)]
     candidates = candidates[::max(1, len(candidates) // (sessions * 3))]
     for prefix in candidates:
         masks = listing(prefix + "camera_chest/left/segmentation_masks/")["items"]
@@ -173,7 +177,7 @@ def sanpo(sessions=8, frames=48):
         with ThreadPoolExecutor(max_workers=4) as pool:
             list(pool.map(fetch, objects))
         selected.append({"session": prefix, "pairs": len(sampled), "objects": objects})
-        save(DATA / "metadata/sanpo_pilot.json", {"sampling": "deterministic session spread; not yet representative", "sessions": selected})
+        save(DATA / "metadata" / metadata_name, {"sampling": "deterministic session spread; not yet representative", "sessions": selected})
         print(f"SANPO: {len(selected)} sessions, {sum(s['pairs'] for s in selected)} pairs", flush=True)
         if len(selected) >= sessions:
             break

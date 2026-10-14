@@ -1,0 +1,59 @@
+{
+  "classes": {
+    "1": "pothole",
+    "2": "stairs",
+    "3": "curb",
+    "4": "single_step",
+    "5": "open_gutter"
+  },
+  "arms": [
+    "augmented"
+  ],
+  "seeds": [
+    17,
+    29,
+    43
+  ],
+  "model": "COCO-pretrained SSDLite320 MobileNetV3; frozen backbone; trained classification/regression heads",
+  "training_updates": 1000,
+  "batch_size": 12,
+  "checkpoint_every": 200,
+  "combined_sampling": "20% new official-training SANPO; 80% previous combined sampler (40% barriers, 60% other)",
+  "primary_comparison": "augmented minus previous combined, same original 3418 test images",
+  "meaningful_gain_rule": "At least 5 percentage points in macro detection F1, paired 95% CI excludes zero",
+  "transfer_rule": "Also inspect non-barrier holdout gains/regressions; no deployment claim from in-domain gains",
+  "iou": [
+    0.5,
+    0.75
+  ],
+  "score_threshold": "per-class selected on validation F1 only; frozen before test",
+  "uncertainty": "paired bootstrap of training seeds and image/near-duplicate groups, stratified by source",
+  "annotation_policy": "Only score/supervise classes annotated by each source; no boxes fabricated from scene classes",
+  "limitations": [
+    "Annotation task batches are proxies, not verified locations, for Accessibility Barriers",
+    "Exact hashes plus conservative perceptual matching do not prove all near duplicates removed",
+    "Frames/stereo views grouped; stair train/val scene prefixes held together",
+    "Generic stairs/curbs do not establish drop direction or safe walking",
+    "Frozen backbone and bounded RDD sample; this is a controlled screening experiment",
+    "Earlier Brazilian exploratory test was used previously; not a pristine deployment acceptance set",
+    "No time-to-edge, real walking false-alarm rate, or device validation in this study",
+    "Only two unique gutter test images after deduplication; insufficient for a reliable gain estimate"
+  ],
+  "baseline": "Existing combined dataset runs with the same three initializations and update budget",
+  "original_manifest_sha256": "e3fb3a135ba7b1b8020f8a57a9215728cadedd3e3ad5111e9e784d4934970316",
+  "original_protocol_sha256": "a0153dba33503bb736a582a3de7a60e56c305f5a58efd6104bc1c4ffad4e42a3",
+  "added_images": 336,
+  "added_sessions": 7,
+  "added_objects": {
+    "3": 338,
+    "2": 22
+  },
+  "excluded_additions": [],
+  "checkpoint_selection_labels": [
+    1,
+    2,
+    3,
+    5
+  ],
+  "ss4blind_policy": "external-source evaluation only; no training or validation tuning on these images; license not established"
+}

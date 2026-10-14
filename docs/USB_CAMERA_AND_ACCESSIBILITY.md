@@ -48,12 +48,13 @@ Build, unit tests, and Android lint:
 
 Install both debug APKs, then run dashboard accessibility tests:
 
-    adb shell am instrument -w -r -e class com.sightbridge.accessibility.DashboardAccessibilityTest com.sightbridge.test/androidx.test.runner.AndroidJUnitRunner
+    adb shell am instrument -w -r -e class com.sightbridge.accessibility.DashboardAccessibilityTest com.sightbridge.test/com.sightbridge.accessibility.AccessibilityPreservingTestRunner
 
 With a physically connected camera, run the opt-in hardware pipeline test:
 
-    adb shell am instrument -w -r -e class com.sightbridge.camera.usb.UsbPipelineDeviceTest -e usbCamera true com.sightbridge.test/androidx.test.runner.AndroidJUnitRunner
+    adb shell am instrument -w -r -e class com.sightbridge.camera.usb.UsbPipelineDeviceTest -e usbCamera true com.sightbridge.test/com.sightbridge.accessibility.AccessibilityPreservingTestRunner
 
+The runner keeps enabled screen readers active while Android UI automation runs.
 The hardware test accepts normal Android camera/USB dialogs and verifies a JPEG
 start marker in the localhost MJPEG stream. It is skipped unless explicitly enabled.
 USB enumeration unit tests cover composite cameras, noncamera devices, and a

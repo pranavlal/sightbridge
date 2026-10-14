@@ -1,12 +1,9 @@
 package com.sightbridge.server
 
-import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.*
 import java.io.OutputStream
-import java.net.Inet4Address
 import java.net.InetAddress
-import java.net.NetworkInterface
 import java.net.ServerSocket
 import java.net.Socket
 import java.util.concurrent.CopyOnWriteArrayList
@@ -20,9 +17,7 @@ import kotlinx.coroutines.channels.Channel
  */
 class MjpegHttpServer(
     val port: Int = 8080,
-    @Volatile var bindToLocalhostOnly: Boolean = true,
-    private val maxClients: Int = 10,
-    private val accessToken: String? = null
+    private val maxClients: Int = 10
 ) {
 
     private val tag = "MjpegHttpServer"
@@ -44,24 +39,19 @@ class MjpegHttpServer(
     init {
         require(port in 1..65535) { "Port must be between 1 and 65535" }
         require(maxClients > 0) { "maxClients must be positive" }
-        require(bindToLocalhostOnly || !accessToken.isNullOrBlank()) { "LAN binding requires an access token" }
     }
 
     fun start(): Result<Unit> {
         if (isRunning) return Result.success(Unit)
 
         return try {
-            val bindAddress = if (bindToLocalhostOnly) {
-                InetAddress.getByName("127.0.0.1")
-            } else {
-                InetAddress.getByName("0.0.0.0")
-            }
+            val bindAddress = InetAddress.getByName("127.0.0.1")
 
             val socket = ServerSocket(port, 50, bindAddress)
             serverSocket = socket
             isRunning = true
 
-            Log.i(tag, "MJPEG Server running on ${bindAddress.hostAddress}:$port (LocalhostOnly=$bindToLocalhostOnly)")
+            Log.i(tag, "MJPEG Server running on ${bindAddress.hostAddress}:$port")
 
             acceptJob = scope.launch {
                 while (isRunning && isActive) {
@@ -125,11 +115,6 @@ class MjpegHttpServer(
                 writeSimpleResponse(socket, "404 Not Found", "MJPEG endpoint is $ENDPOINT_PATH")
                 return
             }
-            if (!bindToLocalhostOnly && !hasValidToken(requestTarget)) {
-                writeSimpleResponse(socket, "401 Unauthorized", "A valid stream access token is required")
-                return
-            }
-
             socket.soTimeout = 0
             val outputStream = socket.getOutputStream()
             
@@ -205,18 +190,6 @@ class MjpegHttpServer(
         }
     }
 
-    private fun hasValidToken(requestTarget: String): Boolean {
-        val supplied = requestTarget.substringAfter('?', "")
-            .split('&')
-            .firstOrNull { it.startsWith("token=") }
-            ?.substringAfter('=')
-            ?: return false
-        return java.security.MessageDigest.isEqual(
-            supplied.toByteArray(Charsets.UTF_8),
-            accessToken.orEmpty().toByteArray(Charsets.UTF_8)
-        )
-    }
-
     /**
      * Broadcast a JPEG frame to all connected MJPEG HTTP clients.
      */
@@ -261,34 +234,12 @@ class MjpegHttpServer(
     }
 
     fun isServerRunning(): Boolean = isRunning
+    fun isLoopbackBound(): Boolean = serverSocket?.inetAddress?.isLoopbackAddress == true
 
     companion object {
         const val ENDPOINT_PATH = "/mjpeg"
         private const val LEGACY_ENDPOINT_PATH = "/live.mjpeg"
         private const val MAX_HEADER_BYTES = 8192
         private const val REQUEST_TIMEOUT_MS = 5000
-        /**
-         * Discovers local IPv4 address across all active non-loopback network interfaces.
-         */
-        fun getPhoneIpAddress(context: Context): String? {
-            return try {
-                val interfaces = NetworkInterface.getNetworkInterfaces()
-                while (interfaces.hasMoreElements()) {
-                    val networkInterface = interfaces.nextElement()
-                    if (networkInterface.isLoopback || !networkInterface.isUp) continue
-
-                    val addresses = networkInterface.inetAddresses
-                    while (addresses.hasMoreElements()) {
-                        val addr = addresses.nextElement()
-                        if (!addr.isLoopbackAddress && addr is Inet4Address) {
-                            return addr.hostAddress
-                        }
-                    }
-                }
-                null
-            } catch (e: Exception) {
-                null
-            }
-        }
     }
 }

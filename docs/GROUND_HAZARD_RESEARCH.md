@@ -82,3 +82,16 @@ Three archive-extraction checks passed (path traversal rejection, symbolic-link
 rejection, and valid extraction). Python syntax checks and `git diff --check`
 also passed. Detailed dataset audit, quarantine list, and training metrics are
 stored under the ignored local data/run directories.
+
+## Additional free sources and photos
+
+[The additional-source review](GROUND_HAZARD_ADDITIONAL_SOURCES.md) records new
+curb/traversability candidates and an acquired Commons pilot. Twenty-one licensed
+photos were downloaded; twelve passed initial visual screening and await
+annotation. They have not been added to the labelled training or test splits.
+
+
+The new public-source downloads and controlled tests are documented in
+[the additional-source results](../reports/ground-hazard-additional-sources-2026-10-12/REPORT.md).
+GONet tests scene traversability; SS4Blind supplies external curb/stair tests;
+seven new SANPO sessions were compared against the previous combined detector.

@@ -15,8 +15,10 @@ android {
         versionCode = 8
         versionName = "1.2.0"
         manifestPlaceholders["appLabel"] = "@string/app_name"
+        manifestPlaceholders["mwdat_application_id"] = providers.gradleProperty("mwdatApplicationId").orElse("0").get()
+        manifestPlaceholders["mwdat_client_token"] = providers.gradleProperty("mwdatClientToken").orElse("0").get()
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = "com.sightbridge.accessibility.AccessibilityPreservingTestRunner"
         vectorDrawables {
             useSupportLibrary = true
         }
@@ -108,7 +110,6 @@ dependencies {
     // Meta Wearables DAT SDK Dependencies
     implementation(libs.mwdat.core)
     implementation(libs.mwdat.camera)
-    implementation(libs.mwdat.display)
     debugImplementation(libs.mwdat.mockdevice)
     "offlineCheckImplementation"(libs.mwdat.mockdevice)
 

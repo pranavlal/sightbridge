@@ -98,3 +98,24 @@ The acquisition commands can resume interrupted partial files. RDD2022's 13 GB
 archive and Accessibility Barriers' 8 GB archive matched published MD5 hashes.
 Accessibility Barriers contains 5,538 matched image/annotation entries: 3,564
 step boxes, 1,492 stair boxes, 143 ramp boxes, and 922 grab-bar boxes.
+
+## Additional free-image review pool
+
+See [the additional-source review](../../docs/GROUND_HAZARD_ADDITIONAL_SOURCES.md).
+`acquire_commons.py` downloads a bounded openly licensed photo batch with provenance.
+The initial acquisition contains 21 images; visual screening retained 12 unlabelled
+candidates. This pool is excluded from training and evaluation until annotated
+and checked for scene overlap and near duplicates.
+
+
+## Additional-source acquisition and tests
+
+[Additional-source results](../../reports/ground-hazard-additional-sources-2026-10-12/REPORT.md)
+cover GONet traversability classification, external SS4Blind detector evaluation,
+and a three-seed SANPO expansion comparison. `acquire_additional.py` downloads
+bounded subsets with receipts; `audit_additional.py` decodes masks and quarantines
+overlaps. `evaluate_gonet_source.py` tests scene classification separately from
+`run_additional_study.py`'s detection comparison. `write_additional_report.py`
+publishes the measurements without dataset images or model weights.
+The original SANPO pilot receipt controls baseline reconstruction even after
+additional sessions have been downloaded.

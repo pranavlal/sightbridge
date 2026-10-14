@@ -8,7 +8,7 @@ class MjpegHttpServerTest {
 
     @Test
     fun testServerLifecycleAndConnection() {
-        val server = MjpegHttpServer(port = 8899, bindToLocalhostOnly = true, maxClients = 2)
+        val server = MjpegHttpServer(port = 8899, maxClients = 2)
         val startResult = server.start()
 
         assertTrue("Server should start successfully", startResult.isSuccess)
@@ -25,7 +25,7 @@ class MjpegHttpServerTest {
 
     @Test
     fun testConnectionCapacityLimit() {
-        val server = MjpegHttpServer(port = 8898, bindToLocalhostOnly = true, maxClients = 1)
+        val server = MjpegHttpServer(port = 8898, maxClients = 1)
         server.start()
 
         // Client 1 connects (fills maxClients = 1 capacity)
@@ -48,7 +48,7 @@ class MjpegHttpServerTest {
 
     @Test
     fun testRejectsUnknownHttpPath() {
-        val server = MjpegHttpServer(port = 8897, bindToLocalhostOnly = true)
+        val server = MjpegHttpServer(port = 8897)
         assertTrue(server.start().isSuccess)
         val client = Socket("127.0.0.1", 8897).apply { soTimeout = 2000 }
         client.getOutputStream().apply {
@@ -63,7 +63,7 @@ class MjpegHttpServerTest {
 
     @Test
     fun testLegacyStreamPathStillWorks() {
-        val server = MjpegHttpServer(port = 8894, bindToLocalhostOnly = true)
+        val server = MjpegHttpServer(port = 8894)
         assertTrue(server.start().isSuccess)
         try {
             Socket("localhost", 8894).use { client ->
@@ -81,7 +81,7 @@ class MjpegHttpServerTest {
 
     @Test
     fun testDisconnectedClientReleasesCapacity() {
-        val server = MjpegHttpServer(port = 8896, bindToLocalhostOnly = true, maxClients = 1)
+        val server = MjpegHttpServer(port = 8896, maxClients = 1)
         assertTrue(server.start().isSuccess)
         val first = Socket("127.0.0.1", 8896).apply { soTimeout = 2000 }
         first.getOutputStream().apply {
@@ -108,30 +108,13 @@ class MjpegHttpServerTest {
     }
 
     @Test
-    fun testLanBindingRequiresValidToken() {
-        val server = MjpegHttpServer(
-            port = 8895,
-            bindToLocalhostOnly = false,
-            maxClients = 2,
-            accessToken = "test-token-123456"
-        )
+    fun testAlwaysBindsToLoopback() {
+        val server = MjpegHttpServer(port = 8895)
         assertTrue(server.start().isSuccess)
-
-        val unauthorized = Socket("127.0.0.1", 8895).apply { soTimeout = 2000 }
-        unauthorized.getOutputStream().apply {
-            write("GET /mjpeg HTTP/1.1\r\nHost: localhost\r\n\r\n".toByteArray())
-            flush()
+        try {
+            assertTrue("Camera stream must not listen on the network", server.isLoopbackBound())
+        } finally {
+            server.stop()
         }
-        assertTrue(unauthorized.getInputStream().bufferedReader().readLine().contains("401 Unauthorized"))
-        unauthorized.close()
-
-        val authorized = Socket("127.0.0.1", 8895).apply { soTimeout = 2000 }
-        authorized.getOutputStream().apply {
-            write("GET /mjpeg?token=test-token-123456 HTTP/1.1\r\nHost: localhost\r\n\r\n".toByteArray())
-            flush()
-        }
-        assertTrue(authorized.getInputStream().bufferedReader().readLine().contains("200 OK"))
-        authorized.close()
-        server.stop()
     }
 }

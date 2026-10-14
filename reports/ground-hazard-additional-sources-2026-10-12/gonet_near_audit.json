@@ -1,0 +1,4 @@
+{
+  "cross_split_links": [],
+  "method": "equal dHash and RGB thumbnail MAE <=5; conservative, not exhaustive"
+}

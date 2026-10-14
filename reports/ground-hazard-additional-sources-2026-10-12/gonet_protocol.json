@@ -1,0 +1,21 @@
+{
+  "task": "unsafe vs traversable scene classification, not hazard localization",
+  "seeds": [
+    17,
+    29,
+    43
+  ],
+  "model": "COCO SSDLite MobileNetV3 frozen six-level pooled features, 64-unit MLP classifier",
+  "epochs": 60,
+  "batch_size": 128,
+  "learning_rate": 0.001,
+  "checkpoint": "best validation F1; validation threshold",
+  "excluded_overlap_images": 0,
+  "near_duplicate_audit": "Exact hashes plus equal dHash/RGB thumbnail MAE<=5 audited; zero cross-split links; not exhaustive",
+  "license": "CC BY-NC-SA 3.0; research only; not deployed",
+  "test_unit": "stereo identifier; average mate probabilities",
+  "limitations": [
+    "labelled unsafe scenes include obstacles, not just drop-offs",
+    "building/route metadata unavailable in small split filenames"
+  ]
+}

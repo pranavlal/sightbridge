@@ -10,7 +10,7 @@ class VoiceStreamAdapterTest {
     @Test
     fun testAdapterLifecycleAndHealth() = runTest {
         val adapter = HttpMjpegVoiceStreamAdapter(jpegEncoder = { _, _ -> byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xD9.toByte()) })
-        val config = VoiceStreamConfig(port = 8888, bindLocalhostOnly = true)
+        val config = VoiceStreamConfig(port = 8888)
 
         adapter.initialise(config)
         assertEquals(VoiceStreamState.STOPPED, adapter.state.value)

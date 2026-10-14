@@ -1,0 +1,84 @@
+{
+  "protocol": {
+    "task": "unsafe vs traversable scene classification, not hazard localization",
+    "seeds": [
+      17,
+      29,
+      43
+    ],
+    "model": "COCO SSDLite MobileNetV3 frozen six-level pooled features, 64-unit MLP classifier",
+    "epochs": 60,
+    "batch_size": 128,
+    "learning_rate": 0.001,
+    "checkpoint": "best validation F1; validation threshold",
+    "excluded_overlap_images": 0,
+    "near_duplicate_audit": "Exact hashes plus equal dHash/RGB thumbnail MAE<=5 audited; zero cross-split links; not exhaustive",
+    "license": "CC BY-NC-SA 3.0; research only; not deployed",
+    "test_unit": "stereo identifier; average mate probabilities",
+    "limitations": [
+      "labelled unsafe scenes include obstacles, not just drop-offs",
+      "building/route metadata unavailable in small split filenames"
+    ]
+  },
+  "split_counts": {
+    "train": 1600,
+    "val": 1600,
+    "test": 1600
+  },
+  "results": [
+    {
+      "seed": 17,
+      "threshold": 0.5499999999999999,
+      "best_epoch": 7,
+      "test": {
+        "f1": 0.9796954314720813,
+        "unsafe_recall": 0.965,
+        "false_alarm_fraction": 0.005,
+        "balanced_accuracy": 0.98,
+        "tp": 386,
+        "fp": 2,
+        "fn": 14,
+        "tn": 398
+      },
+      "test_groups": 800
+    },
+    {
+      "seed": 29,
+      "threshold": 0.525,
+      "best_epoch": 9,
+      "test": {
+        "f1": 0.9822784810126582,
+        "unsafe_recall": 0.97,
+        "false_alarm_fraction": 0.005,
+        "balanced_accuracy": 0.9824999999999999,
+        "tp": 388,
+        "fp": 2,
+        "fn": 12,
+        "tn": 398
+      },
+      "test_groups": 800
+    },
+    {
+      "seed": 43,
+      "threshold": 0.5499999999999999,
+      "best_epoch": 4,
+      "test": {
+        "f1": 0.9848484848484849,
+        "unsafe_recall": 0.975,
+        "false_alarm_fraction": 0.005,
+        "balanced_accuracy": 0.985,
+        "tp": 390,
+        "fp": 2,
+        "fn": 10,
+        "tn": 398
+      },
+      "test_groups": 800
+    }
+  ],
+  "means": {
+    "f1": 0.9822741324444081,
+    "unsafe_recall": 0.9700000000000001,
+    "false_alarm_fraction": 0.005,
+    "balanced_accuracy": 0.9824999999999999
+  }
+}

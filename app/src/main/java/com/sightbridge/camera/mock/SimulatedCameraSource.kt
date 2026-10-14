@@ -114,7 +114,7 @@ class SimulatedCameraSource(
                     metadata = FrameMetadata(isSimulated = true)
                 )
 
-                _frames.emit(cameraFrame)
+                if (_frames.subscriptionCount.value == 0 || !_frames.tryEmit(cameraFrame)) bitmap.recycle()
                 delay(delayMs)
             }
         }
@@ -123,7 +123,7 @@ class SimulatedCameraSource(
     }
 
     override suspend fun stopStreaming(): Result<Unit> {
-        streamJob?.cancel()
+        streamJob?.cancelAndJoin()
         streamJob = null
         _state.value = CameraSourceState.CONNECTED
         return Result.success(Unit)

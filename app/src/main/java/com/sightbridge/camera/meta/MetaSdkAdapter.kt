@@ -5,222 +5,252 @@ import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
-import android.os.Build
 import androidx.core.content.ContextCompat
-import com.meta.wearable.dat.camera.Stream
-import com.meta.wearable.dat.camera.addStream
+import com.meta.wearable.dat.camera.Camera
+import com.meta.wearable.dat.camera.addCamera
 import com.meta.wearable.dat.camera.types.StreamConfiguration
+import com.meta.wearable.dat.camera.types.StreamError
+import com.meta.wearable.dat.camera.types.StreamState
 import com.meta.wearable.dat.camera.types.VideoQuality
 import com.meta.wearable.dat.core.Wearables
 import com.meta.wearable.dat.core.selectors.AutoDeviceSelector
 import com.meta.wearable.dat.core.session.DeviceSession
+import com.meta.wearable.dat.core.session.DeviceSessionState
 import com.meta.wearable.dat.core.types.Permission
 import com.meta.wearable.dat.core.types.PermissionStatus
+import com.meta.wearable.dat.core.types.RegistrationState
+import com.meta.wearable.dat.core.types.WearablesError
 import com.sightbridge.camera.api.CameraSource
 import com.sightbridge.camera.api.PermissionResult
 import com.sightbridge.camera.api.StreamConfig
 import com.sightbridge.core.model.*
-import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
 import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.*
 
-/**
- * Meta Wearables Device Access Toolkit (DAT) SDK Adapter.
- * Encapsulates all DAT SDK calls inside com.sightbridge.camera.meta per Section 8 of specification.
- */
-class MetaSdkAdapter(
-    private val context: Context
-) : CameraSource {
-
-    private val _state = MutableStateFlow(CameraSourceState.UNINITIALISED)
-    override val state: StateFlow<CameraSourceState> = _state.asStateFlow()
-
-    private val _frames = MutableSharedFlow<CameraFrame>(extraBufferCapacity = 1)
-    override val frames: SharedFlow<CameraFrame> = _frames.asSharedFlow()
-
-    override val capabilities: CameraCapabilities = CameraCapabilities(
-        supportedResolutions = listOf(Pair(896, 504), Pair(1280, 720), Pair(640, 360)),
+/** DAT camera source; the Activity owns registration and camera permission prompts. */
+class MetaSdkAdapter(private val context: Context) : CameraSource {
+    private val mutableState = MutableStateFlow(CameraSourceState.UNINITIALISED)
+    override val state: StateFlow<CameraSourceState> = mutableState.asStateFlow()
+    private val mutableFrames = MutableSharedFlow<CameraFrame>(extraBufferCapacity = 1)
+    override val frames: SharedFlow<CameraFrame> = mutableFrames.asSharedFlow()
+    private val mutableError = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = mutableError.asStateFlow()
+    override val capabilities = CameraCapabilities(
+        supportedResolutions = listOf(504 to 896, 720 to 1280, 360 to 640),
         supportedFrameRates = listOf(15, 24, 30),
         supportsHardwareAcceleration = true,
-        isSimulated = false
+        isSimulated = false,
     )
 
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-    private var streamJob: Job? = null
     private var session: DeviceSession? = null
-    private var datStream: Stream? = null
-    private val frameIdCounter = AtomicLong(0)
+    private var camera: Camera? = null
+    private var frameJob: Job? = null
+    private var sessionJob: Job? = null
+    private var sessionErrorJob: Job? = null
+    private var streamStateJob: Job? = null
+    private var streamErrorJob: Job? = null
+    private val frameIds = AtomicLong()
 
-    override suspend fun initialise(): Result<Unit> {
-        return try {
-            Wearables.initialize(context)
-            _state.value = CameraSourceState.READY
-            Result.success(Unit)
-        } catch (e: Exception) {
-            _state.value = CameraSourceState.FAILED
-            Result.failure(e)
-        }
-    }
+    override suspend fun initialise(): Result<Unit> = Wearables.initialize(context).fold(
+        onSuccess = { mutableState.value = CameraSourceState.READY; Result.success(Unit) },
+        onFailure = { error, cause ->
+            if (error == WearablesError.ALREADY_INITIALIZED) {
+                mutableState.value = CameraSourceState.READY
+                Result.success(Unit)
+            } else {
+                mutableState.value = CameraSourceState.FAILED
+                Result.failure(IllegalStateException(error.description, cause))
+            }
+        },
+    )
 
     override suspend fun requestPermissions(): PermissionResult {
-        val bluetoothGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.BLUETOOTH_CONNECT
-            ) == PackageManager.PERMISSION_GRANTED
-        } else {
-            true
-        }
-        if (!bluetoothGranted) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) !=
+            PackageManager.PERMISSION_GRANTED) {
             return PermissionResult(false, listOf(Manifest.permission.BLUETOOTH_CONNECT))
         }
-        val cameraGranted = Wearables.checkPermissionStatus(Permission.CAMERA).fold(
-            onSuccess = { it is PermissionStatus.Granted },
-            onFailure = { _, _ -> false }
-        )
-        return PermissionResult(
-            granted = cameraGranted,
-            deniedPermissions = if (cameraGranted) emptyList() else listOf("Meta camera access")
-        )
-    }
-
-    fun startRegistration(activity: Activity) {
-        runCatching { Wearables.startRegistration(activity) }
-    }
-
-    fun startUnregistration(activity: Activity) {
-        runCatching { Wearables.startUnregistration(activity) }
-    }
-
-    override suspend fun connect(): Result<Unit> {
-        val perm = requestPermissions()
-        if (!perm.granted) {
-            _state.value = CameraSourceState.PERMISSION_REQUIRED
-            return Result.failure(SecurityException("Required Android Bluetooth or Meta camera permission not granted; register the app and allow camera access in Meta AI"))
+        if (Wearables.registrationState.value != RegistrationState.REGISTERED) {
+            return PermissionResult(false, listOf("Meta AI registration"))
         }
-        _state.value = CameraSourceState.CONNECTING
-        _state.value = CameraSourceState.CONNECTED
-        return Result.success(Unit)
+        val granted = Wearables.checkPermissionStatus(Permission.CAMERA).fold(
+            onSuccess = { it == PermissionStatus.Granted },
+            onFailure = { error, cause -> throw IllegalStateException(error.description, cause) },
+        )
+        return PermissionResult(granted, if (granted) emptyList() else listOf("Meta glasses camera"))
+    }
+
+    fun startRegistration(activity: Activity) = Wearables.startRegistration(activity)
+    fun startUnregistration(activity: Activity) = Wearables.startUnregistration(activity)
+
+    override suspend fun connect(): Result<Unit> = try {
+        val permissions = requestPermissions()
+        if (!permissions.granted) {
+            mutableState.value = CameraSourceState.PERMISSION_REQUIRED
+            Result.failure(SecurityException("Allow ${permissions.deniedPermissions.joinToString()} to use Meta glasses"))
+        } else {
+            mutableState.value = CameraSourceState.CONNECTED
+            Result.success(Unit)
+        }
+    } catch (e: Exception) {
+        mutableState.value = CameraSourceState.FAILED
+        Result.failure(e)
     }
 
     override suspend fun startStreaming(config: StreamConfig): Result<Unit> {
-        if (_state.value == CameraSourceState.STREAMING) return Result.success(Unit)
-        _state.value = CameraSourceState.STARTING_STREAM
-
+        if (mutableState.value == CameraSourceState.STREAMING) return Result.success(Unit)
+        mutableState.value = CameraSourceState.STARTING_STREAM
+        mutableError.value = null
         return try {
             stopDatResources()
             val createdSession = Wearables.createSession(AutoDeviceSelector()).fold(
                 onSuccess = { it },
-                onFailure = { error, cause -> throw IllegalStateException(error.description, cause) }
+                onFailure = { error, cause -> throw IllegalStateException(error.description, cause) },
             )
+            session = createdSession
+            sessionJob = scope.launch {
+                createdSession.state.collect { state ->
+                    if (state == DeviceSessionState.STOPPED && session === createdSession &&
+                        mutableState.value == CameraSourceState.STREAMING) {
+                        mutableError.value = "Meta glasses disconnected. Reconnect and start again."
+                        mutableState.value = CameraSourceState.DISCONNECTED
+                    }
+                }
+            }
+            sessionErrorJob = scope.launch {
+                createdSession.errors.collect { error ->
+                    mutableError.value = error.description
+                    if (session === createdSession && mutableState.value == CameraSourceState.STREAMING &&
+                        error != com.meta.wearable.dat.core.types.DeviceSessionError.DWA_OUT_OF_STU_RANGE) {
+                        mutableState.value = CameraSourceState.FAILED
+                    }
+                }
+            }
             createdSession.start()
-
+            val started = withTimeout(30_000) {
+                createdSession.state.first {
+                    it == DeviceSessionState.STARTED || it == DeviceSessionState.STOPPED
+                }
+            }
+            check(started == DeviceSessionState.STARTED) {
+                mutableError.value ?: "Meta glasses session stopped before it connected"
+            }
             val quality = when {
                 config.width >= 1280 || config.height >= 720 -> VideoQuality.HIGH
-                config.width <= 640 || config.height <= 360 -> VideoQuality.LOW
+                config.width <= 640 && config.height <= 360 -> VideoQuality.LOW
                 else -> VideoQuality.MEDIUM
             }
             val fps = listOf(2, 7, 15, 24, 30).minBy { kotlin.math.abs(it - config.targetFps) }
-            val createdStream = createdSession.addStream(
-                StreamConfiguration(videoQuality = quality, frameRate = fps, compressVideo = false)
+            val createdCamera = createdSession.addCamera(
+                StreamConfiguration(videoQuality = quality, frameRate = fps, compressVideo = true),
             ).fold(
                 onSuccess = { it },
-                onFailure = { error, cause ->
-                    createdSession.stop()
-                    throw IllegalStateException(error.description, cause)
-                }
+                onFailure = { error, cause -> throw IllegalStateException(error.description, cause) },
             )
-
-            createdStream.start().fold(
-                onSuccess = { Unit },
-                onFailure = { error, cause ->
-                    createdStream.close()
-                    createdSession.stop()
-                    throw IllegalStateException(error.description, cause)
-                }
-            )
-            session = createdSession
-            datStream = createdStream
-            streamJob = scope.launch {
-                createdStream.videoStream.collect { frame ->
-                    if (frame.isCompressed || frame.width <= 0 || frame.height <= 0) return@collect
-                    val expectedBytes = frame.width.toLong() * frame.height * 4
-                    val buffer = frame.buffer.duplicate().apply { rewind() }
-                    if (buffer.remaining().toLong() < expectedBytes) return@collect
-                    val bitmap = Bitmap.createBitmap(frame.width, frame.height, Bitmap.Config.ARGB_8888)
-                    bitmap.copyPixelsFromBuffer(buffer)
-                    val now = System.nanoTime()
-                    _frames.emit(
-                        CameraFrame(
-                            frameId = frameIdCounter.incrementAndGet(),
-                            source = CameraSourceType.META_GLASSES,
-                            acquisitionTimestampNanos = now,
-                            receivedTimestampNanos = now,
-                            width = frame.width,
-                            height = frame.height,
-                            rotationDegrees = 90,
-                            pixelFormat = PixelFormat.RGBA_8888,
-                            bitmap = bitmap
-                        )
-                    )
+            camera = createdCamera
+            val stream = createdCamera.stream
+            frameJob = scope.launch {
+                val decoder = GlassesVideoDecoder()
+                try {
+                    stream.videoStream.collect { frame ->
+                        if (!frame.isCompressed) return@collect
+                        decoder.decode(frame) { bitmap ->
+                            val now = System.nanoTime()
+                            val result = CameraFrame(
+                                frameId = frameIds.incrementAndGet(),
+                                source = CameraSourceType.META_GLASSES,
+                                acquisitionTimestampNanos = now,
+                                receivedTimestampNanos = now,
+                                width = bitmap.width,
+                                height = bitmap.height,
+                                rotationDegrees = 0,
+                                pixelFormat = PixelFormat.RGBA_8888,
+                                bitmap = bitmap,
+                            )
+                            if (mutableFrames.subscriptionCount.value == 0 || !mutableFrames.tryEmit(result)) bitmap.recycle()
+                        }
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    mutableError.value = "Meta video decoding failed: ${e.message}"
+                    mutableState.value = CameraSourceState.FAILED
+                } finally {
+                    decoder.close()
                 }
             }
-            _state.value = CameraSourceState.STREAMING
+            streamStateJob = scope.launch {
+                var active = false
+                stream.state.collect { state ->
+                    if (state == StreamState.STARTING || state == StreamState.STARTED ||
+                        state == StreamState.STREAMING || state == StreamState.PAUSED) active = true
+                    if (active && state in listOf(StreamState.STOPPED, StreamState.CLOSED) &&
+                        mutableState.value == CameraSourceState.STREAMING) {
+                        mutableError.value = "Meta camera stream ended. Start again to reconnect."
+                        mutableState.value = CameraSourceState.DISCONNECTED
+                    }
+                }
+            }
+            streamErrorJob = scope.launch {
+                stream.errorStream.collect { error ->
+                    if (error != StreamError.STREAM_ERROR) {
+                        mutableError.value = error.description
+                        if (error == StreamError.CRITICAL_STREAM_ERROR ||
+                            error == StreamError.PERMISSIONS_DENIED) mutableState.value = CameraSourceState.FAILED
+                    }
+                }
+            }
+            stream.start().fold(
+                onSuccess = { Unit },
+                onFailure = { error, cause -> throw IllegalStateException(error.description, cause) },
+            )
+            mutableState.value = CameraSourceState.STREAMING
             Result.success(Unit)
+        } catch (e: CancellationException) {
+            stopDatResources()
+            throw e
         } catch (e: Exception) {
             stopDatResources()
-            _state.value = CameraSourceState.FAILED
+            mutableError.value = e.message
+            mutableState.value = CameraSourceState.FAILED
             Result.failure(e)
         }
     }
 
-    fun emitFrameForTesting(bitmap: Bitmap) {
-        val frameId = frameIdCounter.incrementAndGet()
-        val acqNanos = System.nanoTime()
-        val cameraFrame = CameraFrame(
-            frameId = frameId,
-            source = CameraSourceType.META_GLASSES,
-            acquisitionTimestampNanos = acqNanos,
-            receivedTimestampNanos = acqNanos,
-            width = bitmap.width,
-            height = bitmap.height,
-            rotationDegrees = 0,
-            pixelFormat = PixelFormat.RGBA_8888,
-            bitmap = bitmap
-        )
-        _frames.tryEmit(cameraFrame)
+    private suspend fun stopDatResources() {
+        frameJob?.cancelAndJoin(); frameJob = null
+        streamStateJob?.cancelAndJoin(); streamStateJob = null
+        streamErrorJob?.cancelAndJoin(); streamErrorJob = null
+        sessionJob?.cancelAndJoin(); sessionJob = null
+        sessionErrorJob?.cancelAndJoin(); sessionErrorJob = null
+        runCatching { camera?.close() }; camera = null
+        runCatching { session?.stop() }; session = null
     }
 
     override suspend fun stopStreaming(): Result<Unit> {
         stopDatResources()
-        _state.value = CameraSourceState.CONNECTED
+        mutableState.value = CameraSourceState.CONNECTED
         return Result.success(Unit)
     }
 
-    private fun stopDatResources() {
-        streamJob?.cancel()
-        streamJob = null
-        runCatching { datStream?.stop() }
-        runCatching { datStream?.close() }
-        datStream = null
-        runCatching { session?.stop() }
-        session = null
-    }
-
     override suspend fun disconnect(): Result<Unit> {
-        stopStreaming()
-        _state.value = CameraSourceState.DISCONNECTED
+        stopDatResources()
+        mutableState.value = CameraSourceState.DISCONNECTED
         return Result.success(Unit)
     }
 
     override suspend fun release() {
-        disconnect()
+        stopDatResources()
         scope.cancel()
-        _state.value = CameraSourceState.RELEASED
+        mutableState.value = CameraSourceState.RELEASED
+    }
+
+    fun emitFrameForTesting(bitmap: Bitmap) {
+        val now = System.nanoTime()
+        if (mutableFrames.subscriptionCount.value == 0 || !mutableFrames.tryEmit(CameraFrame(frameIds.incrementAndGet(), CameraSourceType.META_GLASSES,
+                now, now, bitmap.width, bitmap.height, 0, PixelFormat.RGBA_8888, bitmap))) {
+            bitmap.recycle()
+        }
     }
 }

@@ -163,8 +163,14 @@ def build():
     test_sessions = set((split_root / "test_session_ids.txt").read_text().splitlines())
     pilot = json.loads((DATA / "metadata/sanpo_pilot.json").read_text())
     train_sessions = sorted(s["session"].rstrip("/").split("/")[-1] for s in pilot["sessions"] if s["session"].rstrip("/").split("/")[-1] not in test_sessions)
+    # Keep the original pilot immutable when later acquisition adds sessions/frames.
+    pilot_masks = {o["name"].removeprefix("sanpo_dataset/v0/")
+                   for session in pilot["sessions"] for o in session["objects"]
+                   if "/segmentation_masks/" in o["name"] and o["name"].endswith(".png")}
     # One complete official-training session reserved for validation.
     for mask in sorted(sanpo.rglob("segmentation_masks/*.png")):
+        if str(mask.relative_to(sanpo)) not in pilot_masks:
+            continue
         with Image.open(mask) as im:
             a = np.asarray(im)[:, :, 0]
         objects = components(a == 2, 3, 50) + components(a == 15, 2, 50)

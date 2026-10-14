@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+- Update Meta Wearables DAT to 1.0.1 from Maven Central and migrate to the
+  session, camera and stream lifecycle.
+- Ask for Android permissions on first launch, then request Meta AI registration
+  and glasses camera access when the glasses source is used.
+- Decode the glasses' HEVC camera frames into the existing AI and MJPEG pipeline,
+  and run glasses capture as a connected-device foreground service.
+- Release rejected and undelivered camera bitmaps, wait for stream workers to
+  stop before clearing their buffers, and make the MJPEG bind mode immutable.
+- Prevent duplicate permission prompts and repeat Meta registration, and opt out
+  of the DAT SDK's optional analytics and crash reporting.
+- Keep TalkBack enabled during instrumentation tests and verify speech uses
+  accessibility announcements when a spoken-feedback service is active.
+- Use the phone's selected default TTS voice only when it is downloaded and
+  works offline; show a warning if offline speech is unavailable.
+- Remove the unused plain-HTTP LAN streaming mode and bind MJPEG to loopback
+  for every caller.
+
 ## 1.2.0 — 2026-10-11 (testing; production release pending)
 
 - Fix signed-build dashboard startup by providing the lifecycle owner explicitly, and preserve MediaPipe's Flogger stack inspection, native protobuf access and ONNX JNI classes through R8. Add an external ADB startup check for the actual signed APK; Android version code is now 7.
