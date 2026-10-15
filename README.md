@@ -14,6 +14,8 @@ assessment using W3C WCAG2ICT guidance remain release gates.
 See the [October 2026 security and accessibility review](docs/SECURITY_ACCESSIBILITY_REVIEW_2026-10-14.md)
 for the current fixes, test results and remaining validation limits.
 
+Read the [Privacy Policy](docs/privacy.html) and [Terms of Service](docs/terms.html).
+
 ## Prerequisites & Environment
 
 - **OS**: Arch Linux
@@ -128,6 +130,7 @@ If you don't have physical Ray-Ban Meta glasses connected:
 - MJPEG always binds to `127.0.0.1`, so only apps on the phone can receive camera frames. There is no LAN-sharing mode.
 - The localhost feed intentionally allows other apps on the same phone, including The vOICe for Android, to read frames while the media server runs. It has no per-app authentication. This interoperability choice is accepted by the project owner; access by other local apps is not a release blocker. The server remains localhost-only in the dashboard and stops serving frames when media output stops.
 - The Meta DAT SDK's optional analytics and SDK crash reporting are disabled in the manifest. Meta AI registration and device access still use Meta's companion app and its service.
+- Google ML Kit's object-detection SDK may send diagnostic and usage data to Google, including device and app information, as described in [Google's ML Kit data disclosure](https://developers.google.com/ml-kit/android-data-disclosure). The normal build is therefore not strictly offline, although camera inference and the MJPEG feed stay on the phone.
 - The streaming URL is `http://localhost:8080/mjpeg`. The previous `/live.mjpeg` path remains supported for existing consumers; malformed and oversized requests are rejected and concurrent clients are capped.
 
 ## Launcher Icon
