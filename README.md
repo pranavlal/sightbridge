@@ -1,12 +1,12 @@
 # SightBridge — offline camera streaming and object cues
 
-**Latest testing release: [v1.2.0-testing.2](https://github.com/pranavlal/sightbridge/releases/tag/v1.2.0-testing.2) (Android version code 9). Minimum Android: 16 (API 36).**
+**Latest testing release: [v1.2.0-testing.3](https://github.com/pranavlal/sightbridge/releases/tag/v1.2.0-testing.3) (Android version code 10). Minimum Android: 16 (API 36).**
 
 SightBridge shares a USB webcam or phone-camera feed with The vOICe for Android
 and optionally runs offline object recognition and position cues. A camera
 foreground service keeps user-started processing alive when the dashboard closes.
 Meta AI glasses can provide the camera feed through the Meta Wearables DAT SDK.
-The included `0` credentials work in Meta AI Developer Mode. See [changes](CHANGELOG.md), [AI processing](docs/AI_PROCESSING.md),
+The configured DAT credentials are merged into the Android manifest during the build. See [changes](CHANGELOG.md), [AI processing](docs/AI_PROCESSING.md),
 and [release readiness](docs/RELEASE_READINESS.md).
 
 This is a testing build. Production security review and a complete WCAG 2.2 AA
@@ -29,17 +29,29 @@ DAT 1.0.1 downloads from Maven Central through the normal Gradle build. It does
 not require a GitHub token. Install the Meta AI app and pair supported Meta AI
 glasses with the phone.
 
-### Enable Developer Mode in Meta AI App
+### Local development with Developer Mode
+
 1. On your iOS or Android phone, open the **Meta AI app**.
 2. Go to **Settings > App Info**.
 3. Tap the **App version** number **5 times** until the Developer Mode toggle appears.
 4. Enable **Developer Mode**.
 
-For local testing, the app uses `0` for both DAT credentials. For distribution
-outside Developer Mode, register SightBridge in the Wearables Developer Center
-and pass its credentials to Gradle with `-PmwdatApplicationId=...` and
-`-PmwdatClientToken=...` (or set those properties in a private Gradle
-properties file). Register the app's `sightbridge` callback scheme there.
+Without configured DAT credentials, the manifest uses `0` for both values for
+local Developer Mode testing.
+
+### Signed APK and Meta glasses access
+
+Set `mwdatApplicationId` and `mwdatClientToken` in ignored `local.properties`
+or user-level Gradle properties; the build merges them into the existing manifest
+metadata. The signed QA package is `com.sightbridge.testing`, while the debug
+package is `com.sightbridge`. The callback scheme is `sightbridge`. Each package
+needs a matching Android app configuration in the Wearables Developer Center.
+
+DAT 1.0 release channels are currently private and invite-only. The credentials
+in an APK do not let arbitrary downloaders register without Developer Mode. To
+test without Developer Mode, create a current integration version, assign it to
+the project's Beta release channel, and invite each tester's Meta account. See
+[Meta's release channel instructions](https://wearables.developer.meta.com/docs/develop/dat/set-up-release-channels/).
 
 On first launch, SightBridge asks for Android camera, Bluetooth and notification
 permissions. Select **Meta Glasses**, then **Connect Meta Glasses** to complete

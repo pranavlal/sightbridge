@@ -1,8 +1,17 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.compose.compiler)
 }
+
+val localWearablesProperties = Properties().apply {
+    rootProject.file("local.properties").takeIf { it.isFile }?.inputStream()?.use { load(it) }
+}
+
+fun wearablesProperty(name: String): String =
+    providers.gradleProperty(name).orNull ?: localWearablesProperties.getProperty(name) ?: "0"
 
 android {
     namespace = "com.sightbridge"
@@ -12,11 +21,11 @@ android {
         applicationId = "com.sightbridge"
         minSdk = 36
         targetSdk = 36
-        versionCode = 9
+        versionCode = 10
         versionName = "1.2.0"
         manifestPlaceholders["appLabel"] = "@string/app_name"
-        manifestPlaceholders["mwdat_application_id"] = providers.gradleProperty("mwdatApplicationId").orElse("0").get()
-        manifestPlaceholders["mwdat_client_token"] = providers.gradleProperty("mwdatClientToken").orElse("0").get()
+        manifestPlaceholders["mwdat_application_id"] = wearablesProperty("mwdatApplicationId")
+        manifestPlaceholders["mwdat_client_token"] = wearablesProperty("mwdatClientToken")
 
         testInstrumentationRunner = "com.sightbridge.accessibility.AccessibilityPreservingTestRunner"
         vectorDrawables {

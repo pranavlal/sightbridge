@@ -25,6 +25,15 @@ Share **`app/build/outputs/apk/qa/sightbridge.apk`** and optionally
 APK signing proves integrity and continuity of updates; it does not complete
 production security, accessibility or hardware validation.
 
+For Meta glasses registration outside Developer Mode, the Wearables Developer
+Center Android configuration must match package `com.sightbridge.testing`, the
+APK's signing certificate, and callback scheme `sightbridge`. The build embeds
+the project application ID and client token from ignored `local.properties` (or
+user-level Gradle properties) into the manifest. DAT 1.0 release channels are
+currently private and invite-only: assign a current integration version to Beta
+and invite each tester's Meta account. An APK download alone does not grant
+glasses access to everyone. See [Meta's release channel instructions](https://wearables.developer.meta.com/docs/develop/dat/set-up-release-channels/).
+
 ## Key custody and future updates
 
 The default private directory is:
@@ -152,3 +161,19 @@ This startup check does not replace media/AI hardware validation.
   and 11 active phone tests with the USB webcam. One optional device test was
   skipped by design. The Meta glasses video path remains untested without
   physical glasses.
+
+## Testing pre-release 3, 2026-10-15
+
+- GitHub tag: `v1.2.0-testing.3`; package `com.sightbridge.testing`, app version
+  `1.2.0-testing`, Android version code 10, Android 16+, arm64-v8a.
+- Signed with the same testing certificate. The APK's v3 signature, 16 KB ZIP
+  alignment, and all 35 bundled 64-bit native libraries' static alignment
+  checks passed.
+- The final APK manifest contains the configured DAT application ID and client
+  token, plus the `sightbridge` callback scheme. The client token is kept out of
+  tracked source files and supplied through ignored local configuration.
+- APK SHA-256:
+  `814f431b28dd8666281802703d626a0cf7ac7ca1ddf0bdd68ffeb235d44617fa`.
+- The QA build and release vital lint passed. No device was attached for this
+  release, so registration with physical glasses and Developer Mode off has not
+  yet been verified.

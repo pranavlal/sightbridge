@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 1.2.0-testing.3 — 2026-10-15
+
+- Embed the Wearables Developer Center application ID and client token in the
+  signed testing APK at build time, using ignored local configuration.
+- Increase the Android version code to 10 so existing testing installations can
+  update with the same signing certificate.
+- Document that DAT release channel access without Developer Mode currently
+  requires invited Meta accounts; glasses registration remains to be tested.
+
 ## 1.2.0-testing.2 — 2026-10-14
 
 - Update Meta Wearables DAT to 1.0.1 from Maven Central and migrate to the
