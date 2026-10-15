@@ -35,10 +35,10 @@ SightBridge uses Google's ML Kit object-detection SDK for on-device position cue
 
 SightBridge processes ordinary camera frames and AI results in memory and does not save a recording or a history of them. It does not transmit them to the developer. The app disables Android backup and device transfer for its app data. The first-run permission flag remains on the phone until the app's data is cleared or the app is uninstalled. Android may retain permission state or local diagnostic logs according to your device settings; SightBridge does not send those logs to the developer.
 
-You can stop camera access in the app, revoke permissions in Android or Meta AI, clear SightBridge's app data, or uninstall the app. There is no SightBridge account or developer-held user record to delete. If you share information with another app or with Meta AI, use that service's controls for its copies.
+You can stop camera access in the app, revoke permissions in Android or Meta AI, clear SightBridge's app data, or uninstall the app. There is no SightBridge account or developer-held app usage record to delete. If you share information with another app or with Meta AI, use that service's controls for its copies.
 
 ## Changes and contact
 
 This policy describes the current testing version. If SightBridge's data practices change, the policy will be updated with a new effective date before the changed version is distributed.
 
-For private privacy questions, contact [pranav@techesoterica.com](mailto:pranav@techesoterica.com). Do not post personal information in a public repository issue.
+If you email [pranav@techesoterica.com](mailto:pranav@techesoterica.com), the developer receives your email address and the information you choose to send. That correspondence is used to respond to you and is kept only as long as needed to handle the inquiry. You can ask for it to be deleted at the same address. Do not post personal information in a public repository issue.
